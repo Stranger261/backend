@@ -1,0 +1,8 @@
+const THRESHOLD = {
+  IP_THRESHOLD: 20,
+  IP_TTL: 60 * 15,
+  EMAIL_THRESHOLD: 10,
+  EMAIL_TTL: 60 * 60,
+};
+
+export default THRESHOLD;
