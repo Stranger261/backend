@@ -8,29 +8,39 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install dependencies for all services
+      - name: Install dependencies for each service
         run: |
           cd services
           for d in */ ; do
             if [ -f "$d/package.json" ]; then
               echo "Installing dependencies in $d"
-              cd $d
+              cd "$d"
               npm install
               cd ..
             fi
           done
 
-      - name: Deploy services via SFTP
-        uses: wlixcc/SFTP-Deploy-Action@v1.2
-        with:
-          server: ${{ secrets.SERVER_HOST }}
-          port: 2298
-          username: ${{ secrets.SERVER_USER }}
-          ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          local_path: "services/**"
-          remote_path: "/home/core1.health-ease-hospital.com"
-          args: '-o StrictHostKeyChecking=no'
+      - name: Deploy each service to CyberPanel
+        run: |
+          cd services
+          for d in */ ; do
+            SERVICE_NAME=${d%/}
+
+            echo "Deploying $SERVICE_NAME ..."
+
+            docker run --rm \
+              -v ${{ github.workspace }}/services/$SERVICE_NAME:/local \
+              wlixcc/sftp-deploy \
+                -s ${{ secrets.SERVER_HOST }} \
+                -P 2298 \
+                -u ${{ secrets.SERVER_USER }} \
+                -k "${{ secrets.DEPLOY_KEY }}" \
+                -r "/home/core1.health-ease-hospital.com/auth.health-ease-hospital.com/${SERVICE_NAME}" \
+                -l "/local" \
+                -o "-o StrictHostKeyChecking=no"
+          done
