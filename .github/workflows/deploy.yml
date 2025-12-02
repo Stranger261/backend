@@ -12,8 +12,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies for Auth Service
+        run: |
+          cd services/auth-service
+          npm install
+
+      - name: Install dependencies for Patient Service
+        run: |
+          cd services/patient-service
+          npm install
 
       - name: Deploy backend via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2
