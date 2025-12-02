@@ -1,17 +1,63 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../config/db.config.js';
 
+/**
+ * Appointment Model (Updated with new fields)
+ */
 class Appointment extends Model {
   static async getTodaysAppointments() {
     const today = new Date().toISOString().split('T')[0];
     return await this.findAll({
       where: { appointment_date: today },
-      order: [['appointment_time', 'ASC']],
+      order: [['start_time', 'ASC']],
     });
   }
 
+  /**
+   * Check if time slot conflicts with existing appointments
+   */
+  static async hasConflict(
+    doctorId,
+    appointmentDate,
+    startTime,
+    excludeAppointmentId = null
+  ) {
+    const where = {
+      doctor_id: doctorId,
+      appointment_date: appointmentDate,
+      start_time: startTime,
+      status: ['scheduled', 'confirmed', 'checked_in', 'in_progress'],
+    };
+
+    if (excludeAppointmentId) {
+      where.appointment_id = {
+        [sequelize.Sequelize.Op.ne]: excludeAppointmentId,
+      };
+    }
+
+    const existing = await this.findOne({ where });
+    return !!existing;
+  }
+
+  // Status checking methods
   canCancel() {
     return ['scheduled', 'confirmed'].includes(this.status);
+  }
+
+  canReschedule() {
+    return ['scheduled', 'confirmed'].includes(this.status);
+  }
+
+  canCheckIn() {
+    return ['scheduled', 'confirmed'].includes(this.status);
+  }
+
+  canExtend() {
+    return ['in_progress', 'checked_in'].includes(this.status);
+  }
+
+  canComplete() {
+    return ['checked_in', 'in_progress'].includes(this.status);
   }
 }
 
@@ -30,14 +76,31 @@ Appointment.init(
     patient_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      references: {
+        model: 'patients',
+        key: 'patient_id',
+      },
     },
     doctor_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      references: {
+        model: 'staff',
+        key: 'staff_id',
+      },
+    },
+    department_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'departments',
+        key: 'department_id',
+      },
     },
     appointment_type: {
       type: DataTypes.ENUM('consultation', 'followup', 'procedure', 'checkup'),
       allowNull: false,
+      defaultValue: 'consultation',
     },
     appointment_date: {
       type: DataTypes.DATEONLY,
@@ -46,10 +109,24 @@ Appointment.init(
     appointment_time: {
       type: DataTypes.TIME,
       allowNull: false,
+      comment: 'Legacy field, use start_time instead',
+    },
+    start_time: {
+      type: DataTypes.TIME,
+      allowNull: false,
+    },
+    end_time: {
+      type: DataTypes.TIME,
+      allowNull: true,
     },
     duration_minutes: {
       type: DataTypes.INTEGER,
       defaultValue: 30,
+    },
+    time_extended_minutes: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      comment: 'Minutes extended beyond base duration',
     },
     status: {
       type: DataTypes.ENUM(
@@ -63,6 +140,10 @@ Appointment.init(
       ),
       defaultValue: 'scheduled',
     },
+    priority: {
+      type: DataTypes.ENUM('normal', 'urgent', 'emergency'),
+      defaultValue: 'normal',
+    },
     reason: {
       type: DataTypes.TEXT,
       allowNull: true,
@@ -71,11 +152,45 @@ Appointment.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    consultation_fee: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 500.0,
+      comment: 'Base consultation fee',
+    },
+    extension_fee: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0.0,
+      comment: 'Fee for extended time',
+    },
+    total_amount: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 500.0,
+      comment: 'Total fee (consultation + extension)',
+    },
+    payment_status: {
+      type: DataTypes.ENUM(
+        'pending',
+        'partial',
+        'paid',
+        'refunded',
+        'cancelled'
+      ),
+      defaultValue: 'pending',
+    },
+    created_by: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'user_id or staff_id who created the appointment',
+    },
     cancelled_at: {
       type: DataTypes.DATE,
       allowNull: true,
     },
     created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
+    updated_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
@@ -86,10 +201,13 @@ Appointment.init(
     tableName: 'appointments',
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: false,
+    updatedAt: 'updated_at',
     indexes: [
-      { name: 'idx_doctor_date', fields: ['doctor_id', 'appointment_date'] },
       { name: 'idx_appointment_number', fields: ['appointment_number'] },
+      { name: 'idx_doctor_date', fields: ['doctor_id', 'appointment_date'] },
+      { name: 'idx_patient_id', fields: ['patient_id'] },
+      { name: 'idx_status', fields: ['status'] },
+      { name: 'idx_payment_status', fields: ['payment_status'] },
     ],
   }
 );
