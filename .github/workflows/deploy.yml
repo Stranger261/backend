@@ -1,0 +1,26 @@
+name: Deploy Node Backend to CyberPanel
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Deploy backend via SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2
+        with:
+          server: ${{ secrets.SERVER_HOST }}
+          port: 2298
+          username: ${{ secrets.SERVER_USER }}
+          ssh_private_key: ${{ secrets.DEPLOY_KEY }}
+          remote_path: /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com
+          args: '-o StrictHostKeyChecking=no'
