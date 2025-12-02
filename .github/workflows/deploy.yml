@@ -1,4 +1,4 @@
-name: Deploy Node Backend to CyberPanel
+name: Deploy All Services to CyberPanel
 
 on:
   push:
@@ -12,22 +12,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install dependencies for Auth Service
+      - name: Install dependencies for all services
         run: |
-          cd services/auth-service
-          npm install
+          cd services
+          for d in */ ; do
+            if [ -f "$d/package.json" ]; then
+              echo "Installing dependencies in $d"
+              cd $d
+              npm install
+              cd ..
+            fi
+          done
 
-      - name: Install dependencies for Patient Service
-        run: |
-          cd services/patient-service
-          npm install
-
-      - name: Deploy backend via SFTP
+      - name: Deploy services via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2
         with:
           server: ${{ secrets.SERVER_HOST }}
           port: 2298
           username: ${{ secrets.SERVER_USER }}
           ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          remote_path: /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com
+          local_path: "services/**"
+          remote_path: "/home/core1.health-ease-hospital.com"
           args: '-o StrictHostKeyChecking=no'
