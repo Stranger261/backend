@@ -1,4 +1,4 @@
-name: Deploy All Services to CyberPanel
+name: Deploy Microservices to CyberPanel
 
 on:
   push:
@@ -13,48 +13,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Cache npm modules (fast installs)
-      - name: Cache npm modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('services/**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-
-      # Install dependencies ONLY for top-level service folders
-      - name: Install dependencies for all services (TOP LEVEL ONLY)
+      # AUTH SERVICE -------------------------
+      - name: Install dependencies (auth-service)
         run: |
-          cd services
-          for d in */ ; do
-            # Skip node_modules or other invalid dirs
-            if [[ "$d" == "node_modules/" ]]; then
-              continue
-            fi
+          cd services/auth-service
+          npm install
 
-            if [ -f "$d/package.json" ]; then
-              echo "Installing dependencies in $d"
-              cd "$d"
-              npm ci
-              cd ..
-            fi
-          done
-
-      # Deploy only top-level services (NOT recursive into node_modules)
-      - name: Deploy services via SFTP
+      - name: Deploy auth-service
         uses: wlixcc/SFTP-Deploy-Action@v1.2
         with:
           server: ${{ secrets.SERVER_HOST }}
           port: 2298
           username: ${{ secrets.SERVER_USER }}
           ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          local_path: "services/*"          # ⬅ MAIN FIX — no recursive ** scanning
-          remote_path: "/home/core1.health-ease-hospital.com/auth.health-ease-hospital.com"
+          local_path: "services/auth-service/*"
+          remote_path: "/home/core1.health-ease-hospital.com/auth-service"
+          exclude: |
+            node_modules
+            .git
           args: "-o StrictHostKeyChecking=no"
-          exclude: |                       # ⬅ Clean exclusions
-            **/node_modules/**
-            **/test/**
-            **/tests/**
-            **/logs/**
-            **/.git/**
-            **/coverage/**
+
+      # PATIENT SERVICE ----------------------
+      - name: Install dependencies (patient-service)
+        run: |
+          cd services/patient-service
+          npm install
+
+      - name: Deploy patient-service
+        uses: wlixcc/SFTP-Deploy-Action@v1.2
+        with:
+          server: ${{ secrets.SERVER_HOST }}
+          port: 2298
+          username: ${{ secrets.SERVER_USER }}
+          ssh_private_key: ${{ secrets.DEPLOY_KEY }}
+          local_path: "services/patient-service/*"
+          remote_path: "/home/core1.health-ease-hospital.com/patient-service"
+          exclude: |
+            node_modules
+            .git
+          args: "-o StrictHostKeyChecking=no"
