@@ -1,4 +1,4 @@
-name: Deploy All Node Services to CyberPanel
+name: Deploy Node Services to CyberPanel
 
 on:
   push:
@@ -10,59 +10,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: 📦 Install dependencies for each service
-        run: |
-          cd services
-          for d in */ ; do
-            if [ -f "$d/package.json" ]; then
-              echo "📦 Installing dependencies for $d"
-              cd "$d"
-              npm install --production
-              cd ..
-            fi
-          done
-
-      # ============================
-      # Deploy AUTH SERVICE
-      # ============================
-      - name: 🚀 Deploy auth-service to CyberPanel
-        uses: wlixcc/SFTP-Deploy-Action@v1.2
+      # ---------------------------
+      # Upload all services via SFTP
+      # ---------------------------
+      - name: Upload services to server
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          server: ${{ secrets.SERVER_HOST }}
-          port: 2298
+          host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          local_path: 'services/auth-service/*'
-          remote_path: /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com
-          args: '-o StrictHostKeyChecking=no'
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 2298
+          script: |
+            # Create services folder if it doesn't exist
+            mkdir -p /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com/services
 
-      # ============================
-      # Deploy PATIENT SERVICE
-      # ============================
-      - name: 🚀 Deploy patient-service to CyberPanel
-        uses: wlixcc/SFTP-Deploy-Action@v1.2
+      - name: Upload service folders
+        uses: appleboy/scp-action@master
         with:
-          server: ${{ secrets.SERVER_HOST }}
-          port: 2298
+          host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          local_path: 'services/patient-service/*'
-          remote_path: /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com
-          args: '-o StrictHostKeyChecking=no'
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 2298
+          source: "services/*"
+          target: "/home/core1.health-ease-hospital.com/auth.health-ease-hospital.com/services"
+          rm: false
+          recursive: true
+          exclude: "node_modules, .git, .github, test"
 
-      # ============================
-      # Add more services here
-      # ============================
-      # - name: Deploy another-service
-      #   uses: wlixcc/SFTP-Deploy-Action@v1.2
-      #   with:
-      #     server: ${{ secrets.SERVER_HOST }}
-      #     port: 2298
-      #     username: ${{ secrets.SERVER_USER }}
-      #     ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-      #     local_path: 'services/another-service/*'
-      #     remote_path: /home/.../another-service
-      #     args: '-o StrictHostKeyChecking=no'
+      # ---------------------------
+      # Install dependencies & restart services
+      # ---------------------------
+      - name: Install & restart services on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 2298
+          script: |
+            cd /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com/services
+
+            for d in */ ; do
+              if [ -f "$d/package.json" ]; then
+                echo "Installing dependencies for $d"
+                cd "$d"
+                npm install --production
+                pm2 restart "$d" || pm2 start npm --name "$d" -- run start
+                cd ..
+              fi
+            done
