@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Cache npm modules (optional but recommended for faster installs)
+      # Cache npm modules (fast installs)
       - name: Cache npm modules
         uses: actions/cache@v3
         with:
@@ -22,12 +22,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      # Install dependencies ONLY in top-level service folders
+      # Install dependencies ONLY for top-level service folders
       - name: Install dependencies for all services (TOP LEVEL ONLY)
         run: |
           cd services
           for d in */ ; do
-            # Skip node_modules folder (important)
+            # Skip node_modules or other invalid dirs
             if [[ "$d" == "node_modules/" ]]; then
               continue
             fi
@@ -40,7 +40,7 @@ jobs:
             fi
           done
 
-      # Deploy ALL services but EXCLUDE node_modules (critical fix)
+      # Deploy only top-level services (NOT recursive into node_modules)
       - name: Deploy services via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2
         with:
@@ -48,9 +48,13 @@ jobs:
           port: 2298
           username: ${{ secrets.SERVER_USER }}
           ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          local_path: "services/**"
+          local_path: "services/*"          # ⬅ MAIN FIX — no recursive ** scanning
           remote_path: "/home/core1.health-ease-hospital.com/auth.health-ease-hospital.com"
           args: "-o StrictHostKeyChecking=no"
-          exclude: |
+          exclude: |                       # ⬅ Clean exclusions
             **/node_modules/**
+            **/test/**
+            **/tests/**
+            **/logs/**
             **/.git/**
+            **/coverage/**
