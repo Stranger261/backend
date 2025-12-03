@@ -13,20 +13,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Cache dependencies so repeated installs are FAST
+      # Cache npm modules (optional but recommended for faster installs)
       - name: Cache npm modules
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.npm
+          path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('services/**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      - name: Install dependencies for all services
+      # Install dependencies ONLY in top-level service folders
+      - name: Install dependencies for all services (TOP LEVEL ONLY)
         run: |
           cd services
-          for d in $(find . -maxdepth 1 -type d -not -path "." -not -path "./node_modules"); do
+          for d in */ ; do
+            # Skip node_modules folder (important)
+            if [[ "$d" == "node_modules/" ]]; then
+              continue
+            fi
+
             if [ -f "$d/package.json" ]; then
               echo "Installing dependencies in $d"
               cd "$d"
@@ -35,7 +40,7 @@ jobs:
             fi
           done
 
-
+      # Deploy ALL services but EXCLUDE node_modules (critical fix)
       - name: Deploy services via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2
         with:
@@ -46,3 +51,6 @@ jobs:
           local_path: "services/**"
           remote_path: "/home/core1.health-ease-hospital.com/auth.health-ease-hospital.com"
           args: "-o StrictHostKeyChecking=no"
+          exclude: |
+            **/node_modules/**
+            **/.git/**
