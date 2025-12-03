@@ -1,4 +1,4 @@
-name: Deploy Microservices to CyberPanel
+name: Deploy All Node Services to CyberPanel
 
 on:
   push:
@@ -10,45 +10,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: ⬇️ Checkout repository
         uses: actions/checkout@v3
 
-      # AUTH SERVICE -------------------------
-      - name: Install dependencies (auth-service)
+      - name: 📦 Install dependencies for each service
         run: |
-          cd services/auth-service
-          npm install
+          cd services
+          for d in */ ; do
+            if [ -f "$d/package.json" ]; then
+              echo "📦 Installing dependencies for $d"
+              cd "$d"
+              npm install --production
+              cd ..
+            fi
+          done
 
-      - name: Deploy auth-service
+      # ============================
+      # Deploy AUTH SERVICE
+      # ============================
+      - name: 🚀 Deploy auth-service to CyberPanel
         uses: wlixcc/SFTP-Deploy-Action@v1.2
         with:
           server: ${{ secrets.SERVER_HOST }}
           port: 2298
           username: ${{ secrets.SERVER_USER }}
           ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          local_path: "services/auth-service/*"
-          remote_path: "/home/core1.health-ease-hospital.com/auth-service"
-          exclude: |
-            node_modules
-            .git
-          args: "-o StrictHostKeyChecking=no"
+          local_path: 'services/auth-service/*'
+          remote_path: /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com
+          args: '-o StrictHostKeyChecking=no'
 
-      # PATIENT SERVICE ----------------------
-      - name: Install dependencies (patient-service)
-        run: |
-          cd services/patient-service
-          npm install
-
-      - name: Deploy patient-service
+      # ============================
+      # Deploy PATIENT SERVICE
+      # ============================
+      - name: 🚀 Deploy patient-service to CyberPanel
         uses: wlixcc/SFTP-Deploy-Action@v1.2
         with:
           server: ${{ secrets.SERVER_HOST }}
           port: 2298
           username: ${{ secrets.SERVER_USER }}
           ssh_private_key: ${{ secrets.DEPLOY_KEY }}
-          local_path: "services/patient-service/*"
-          remote_path: "/home/core1.health-ease-hospital.com/patient-service"
-          exclude: |
-            node_modules
-            .git
-          args: "-o StrictHostKeyChecking=no"
+          local_path: 'services/patient-service/*'
+          remote_path: /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com
+          args: '-o StrictHostKeyChecking=no'
+
+      # ============================
+      # Add more services here
+      # ============================
+      # - name: Deploy another-service
+      #   uses: wlixcc/SFTP-Deploy-Action@v1.2
+      #   with:
+      #     server: ${{ secrets.SERVER_HOST }}
+      #     port: 2298
+      #     username: ${{ secrets.SERVER_USER }}
+      #     ssh_private_key: ${{ secrets.DEPLOY_KEY }}
+      #     local_path: 'services/another-service/*'
+      #     remote_path: /home/.../another-service
+      #     args: '-o StrictHostKeyChecking=no'
