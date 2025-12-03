@@ -23,20 +23,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      - name: Install dependencies for all services (FAST)
+      - name: Install dependencies for all services
         run: |
           cd services
-          for d in */ ; do
+          for d in $(find . -maxdepth 1 -type d -not -path "." -not -path "./node_modules"); do
             if [ -f "$d/package.json" ]; then
               echo "Installing dependencies in $d"
-              cd $d
-
-              # Use npm ci for faster & consistent installs
+              cd "$d"
               npm ci
-
               cd ..
             fi
           done
+
 
       - name: Deploy services via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2
