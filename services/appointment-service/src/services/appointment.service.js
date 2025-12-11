@@ -9,16 +9,6 @@ import {
 } from 'date-fns';
 import dayjs from 'dayjs';
 
-const addMinutes = (startTime, minutesToAdd) => {
-  const endTime = dayjs(startTime, 'HH:mm:ss').add(minutesToAdd, 'minute');
-  return endTime.format('HH:mm:ss');
-};
-
-// Usage
-const start_time = '10:00:00';
-const end_time = addMinutes(start_time, 30); // Add 30 minutes
-console.log(end_time); // Should log '10:30:00'
-
 import AppError from '../../../shared/utils/AppError.util.js';
 import {
   Appointment,
