@@ -1,9 +1,4 @@
 // routes/doctor.route.js
-/**
- * Doctor Routes (Core 1 - Appointment System)
- * READ-ONLY routes for appointment booking
- * No schedule/leave management (that's HR module)
- */
 
 import express from 'express';
 import * as doctorController from '../controllers/doctor.controller.js';
