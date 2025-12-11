@@ -1,9 +1,7 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../config/db.config.js';
+import Staff from '../ibms/Staff.model.js';
 
-/**
- * Appointment Model (Updated with new fields)
- */
 class Appointment extends Model {
   static async getTodaysAppointments() {
     const today = new Date().toISOString().split('T')[0];
@@ -17,13 +15,19 @@ class Appointment extends Model {
    * Check if time slot conflicts with existing appointments
    */
   static async hasConflict(
-    doctorId,
+    doctorUuid,
     appointmentDate,
     startTime,
     excludeAppointmentId = null
   ) {
+    const doctor = await Staff.findOne({ where: { staff_uuid: doctorUuid } });
+
+    if (!doctor) {
+      throw new Error('Doctor not found');
+    }
+
     const where = {
-      doctor_id: doctorId,
+      doctor_id: doctor.staff_id,
       appointment_date: appointmentDate,
       start_time: startTime,
       status: ['scheduled', 'confirmed', 'checked_in', 'in_progress'],

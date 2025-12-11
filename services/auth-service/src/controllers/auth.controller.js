@@ -25,20 +25,20 @@ export const getAllUser = asyncHandler(async (req, res) => {
 });
 
 export const getUserById = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { userUuid } = req.params;
 
-  const user = await authService.getUserById(userId);
+  const user = await authService.getUserById(userUuid);
 
   messageSender(200, 'User retrieved successfully.', user, res);
 });
 
 export const activateAndInactivateToggle = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  const { userId } = req.params;
+  const { userUuid } = req.params;
   const { userAgent, ipAddress } = req.clientInfo;
 
   const userNewStatus = await authService.activateAndInactivateUser(
-    userId,
+    userUuid,
     status,
     userAgent,
     ipAddress
@@ -48,12 +48,12 @@ export const activateAndInactivateToggle = asyncHandler(async (req, res) => {
 });
 
 export const updateUser = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { userUuid } = req.params;
 
   const { userAgent, ipAddress } = req.clientInfo;
 
   const updatedUser = await authService.updateUser(
-    userId,
+    userUuid,
     req.body,
     userAgent,
     ipAddress
@@ -63,11 +63,11 @@ export const updateUser = asyncHandler(async (req, res) => {
 });
 
 export const deleteUser = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { userUuid } = req.params;
   const { userAgent, ipAddress } = req.clientInfo;
 
   const deletedUser = await authService.deleteUser(
-    userId,
+    userUuid,
     userAgent,
     ipAddress
   );
@@ -76,9 +76,9 @@ export const deleteUser = asyncHandler(async (req, res) => {
 });
 
 export const getProfile = asyncHandler(async (req, res) => {
-  const { user_id } = req.user;
+  const { user_uuid } = req.user;
 
-  const userProfile = await authService.getProfile(user_id);
+  const userProfile = await authService.getProfile(user_uuid);
 
   messageSender(200, 'User profile retrieved successfully.', userProfile, res);
 });

@@ -3,39 +3,77 @@ import sequelize from '../../config/db.config.js';
 
 class IdSequence extends Model {
   static async getNextValue(sequenceType) {
-    const sequence = await this.findOne({
-      where: { sequence_type: sequenceType },
-    });
+    const transaction = await sequelize.transaction();
 
-    if (!sequence) {
-      throw new Error(`Sequence type ${sequenceType} not found`);
-    }
+    try {
+      const currentYear = new Date().getFullYear();
 
-    // Check if need to reset for new year
-    const currentYear = new Date().getFullYear();
-    if (sequence.reset_yearly && sequence.year < currentYear) {
-      await sequence.update({
-        current_value: 1,
-        year: currentYear,
+      // Define defaults for each sequence type
+      const sequenceDefaults = {
+        mrn: { prefix: 'MRN', padding_length: 6 },
+        appointment: { prefix: 'APT', padding_length: 6 },
+        admission: { prefix: 'ADM', padding_length: 6 },
+        er_visit: { prefix: 'ER', padding_length: 6 },
+        invoice: { prefix: 'INV', padding_length: 6 },
+        prescription: { prefix: 'RX', padding_length: 6 },
+        lab_order: { prefix: 'LAB', padding_length: 6 },
+      };
+
+      const defaults = sequenceDefaults[sequenceType];
+
+      if (!defaults) {
+        throw new Error(`Invalid sequence type: ${sequenceType}`);
+      }
+
+      // Find or create the sequence
+      const [sequence, created] = await IdSequence.findOrCreate({
+        where: { sequence_type: sequenceType },
+        defaults: {
+          sequence_type: sequenceType,
+          prefix: defaults.prefix,
+          current_value: 0,
+          year: currentYear,
+          reset_yearly: true,
+          padding_length: defaults.padding_length,
+          last_updated: new Date(),
+        },
+        transaction,
       });
+
+      // Check if need to reset for new year
+      if (sequence.reset_yearly && sequence.year < currentYear) {
+        sequence.current_value = 1;
+        sequence.year = currentYear;
+        sequence.last_updated = new Date();
+        await sequence.save({ transaction });
+
+        await transaction.commit();
+
+        return this.formatId(
+          sequence.prefix,
+          currentYear,
+          1,
+          sequence.padding_length
+        );
+      }
+
+      // Increment
+      sequence.current_value += 1;
+      sequence.last_updated = new Date();
+      await sequence.save({ transaction });
+
+      await transaction.commit();
+
       return this.formatId(
         sequence.prefix,
-        currentYear,
-        1,
+        sequence.year,
+        sequence.current_value,
         sequence.padding_length
       );
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
-
-    // Increment
-    const nextValue = sequence.current_value + 1;
-    await sequence.update({ current_value: nextValue });
-
-    return this.formatId(
-      sequence.prefix,
-      sequence.year,
-      nextValue,
-      sequence.padding_length
-    );
   }
 
   static formatId(prefix, year, value, padding) {

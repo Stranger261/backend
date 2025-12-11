@@ -46,10 +46,10 @@ export const verifyEmail = asyncHandler(async (req, res) => {
 });
 
 export const resendOTP = asyncHandler(async (req, res) => {
-  const { user_id } = req?.user;
+  const { user_uuid } = req?.user;
   const { ipAddress } = req.clientInfo;
 
-  const newOTP = await authRegistration.resendOTP(user_id, ipAddress);
+  const newOTP = await authRegistration.resendOTP(user_uuid, ipAddress);
 
   messageSender(200, 'New otp sent to email', newOTP, res);
 });

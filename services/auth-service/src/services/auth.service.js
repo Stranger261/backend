@@ -14,7 +14,14 @@ import { sanitizeUser } from '../util/sanitizeUser.util.js';
 import AppError from '../../../shared/utils/AppError.util.js';
 import { activeRecord } from '../../../shared/helpers/queryFilters.helper.js';
 import { patientApi } from '../../../shared/utils/apiUrl.util.js';
-import { Person, Role, User, UserRole } from '../../../shared/models/index.js';
+import {
+  Patient,
+  Person,
+  Role,
+  Staff,
+  User,
+  UserRole,
+} from '../../../shared/models/index.js';
 
 export default new (class authService {
   // constructor() {}
@@ -46,9 +53,31 @@ export default new (class authService {
         );
       }
 
-      const user = await User.findOne({
-        where: { email, is_deleted: false },
-      });
+      const user = await User.findOne(
+        {
+          where: { email, is_deleted: false },
+          include: [
+            {
+              model: Person,
+              as: 'person',
+              include: [
+                {
+                  model: Staff,
+                  as: 'staff',
+                  attributes: [
+                    'staff_id',
+                    'staff_uuid',
+                    'role',
+                    'specialization',
+                  ],
+                },
+                { model: Patient, as: 'patient' },
+              ],
+            },
+          ],
+        },
+        { transaction }
+      );
 
       if (!user) {
         const ipAttempts = await incrWithTTL(ipKey, THRESHOLD.IP_TTL);
@@ -184,6 +213,9 @@ export default new (class authService {
         {
           user_id: user.user_id,
           user_uuid: user.user_uuid,
+          staff_id: user?.person?.staff?.staff_id || null,
+          staff_uuid: user?.person?.staff?.staff_uuid || null,
+          patient_uuid: user?.person?.patient?.patient_uuid || null,
           email: user.email,
           roles: roles.map(role => role.role_name),
           role: roles[0]?.role_name.toLowerCase(),
@@ -285,10 +317,10 @@ export default new (class authService {
     }
   }
 
-  async getUserById(userId) {
+  async getUserById(userUuid) {
     try {
       const user = User.find({
-        where: { user_id: userId },
+        where: { user_uuid: userUuid },
       });
 
       if (!user) {
@@ -304,11 +336,11 @@ export default new (class authService {
     }
   }
 
-  async activateAndInactivateUser(userId, status, userAgent, ipAddress) {
+  async activateAndInactivateUser(userUuid, status, userAgent, ipAddress) {
     const transaction = await sequelize.transaction();
     try {
       const user = await User.update(
-        { where: activeRecord({ user_id: userId, status }) },
+        { where: activeRecord({ user_uuid: userUuid, status }) },
         { transaction }
       );
 
@@ -327,14 +359,15 @@ export default new (class authService {
     }
   }
 
-  async updateUser(userId, newData, userAgent, ipAddress) {
+  async updateUser(userUuid, newData, userAgent, ipAddress) {
     const transaction = await sequelize.transaction();
     try {
       const updatedUser = User.update(newData, {
-        where: { user_id: userId },
+        where: { user_uuid: userUuid },
         transaction,
       });
-      if (!user) {
+
+      if (!updatedUser) {
         throw new AppError('User not found.', 404);
       }
 
@@ -344,20 +377,18 @@ export default new (class authService {
     } catch (error) {
       await transaction.rollback();
       console.log('Updating user error: ', error);
-      throw (
-        (error instanceof AppError ? AppError : 'Internal server error', 500)
-      );
+      throw (error instanceof AppError ? AppError : 'User update failed.', 500);
     }
   }
 
-  async deleteUser(userId, userAgent, ipAddress) {
+  async deleteUser(userUuid, userAgent, ipAddress) {
     const transaction = await sequelize.transaction();
 
     try {
       const deletedUser = await User.update(
         { is_deleted: true, is_active: false },
         {
-          where: activeRecord({ user_id: userId }),
+          where: activeRecord({ user_uuid: userUuid }),
         },
         transaction
       );
@@ -378,14 +409,27 @@ export default new (class authService {
     }
   }
 
-  async getProfile(userId) {
+  async getProfile(userUuid) {
     try {
-      const user = await User.findByPk(userId, {
-        attributes: { exclude: ['password_hash'] },
+      const user = await User.findOne({
+        where: { user_uuid: userUuid },
         include: [
           {
             model: Person,
             as: 'person',
+            include: [
+              {
+                model: Patient,
+                as: 'patient',
+                attributes: [
+                  'patient_id',
+                  'patient_uuid',
+                  'mrn',
+                  'registration_type',
+                  'patient_status',
+                ],
+              },
+            ],
           },
         ],
       });

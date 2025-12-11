@@ -1,42 +1,31 @@
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes } from 'sequelize';
 import sequelize from '../../config/db.config.js';
 
-class DoctorSchedule extends Model {
-  static async getDoctorSchedule(doctorId, dayOfWeek) {
-    return await this.findAll({
-      where: {
-        doctor_id: doctorId,
-        day_of_week: dayOfWeek,
-        is_active: true,
-      },
-    });
-  }
-
-  isAvailable(time) {
-    return time >= this.start_time && time <= this.end_time;
-  }
-}
-
-DoctorSchedule.init(
+const DoctorSchedule = sequelize.define(
+  'DoctorSchedule',
   {
     schedule_id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    doctor_id: {
+    staff_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      references: {
+        model: 'staff',
+        key: 'staff_id',
+      },
     },
     day_of_week: {
       type: DataTypes.ENUM(
-        'monday',
-        'tuesday',
-        'wednesday',
-        'thursday',
-        'friday',
-        'saturday',
-        'sunday'
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday'
       ),
       allowNull: false,
     },
@@ -48,33 +37,54 @@ DoctorSchedule.init(
       type: DataTypes.TIME,
       allowNull: false,
     },
-    slot_duration: {
-      type: DataTypes.INTEGER,
-      defaultValue: 30,
-    },
-    max_patients: {
-      type: DataTypes.INTEGER,
-      defaultValue: 1,
-    },
-    effective_from: {
-      type: DataTypes.DATEONLY,
+    location: {
+      type: DataTypes.STRING(100),
       allowNull: false,
-    },
-    effective_until: {
-      type: DataTypes.DATEONLY,
-      allowNull: true,
     },
     is_active: {
       type: DataTypes.BOOLEAN,
+      allowNull: false,
       defaultValue: true,
+    },
+    effective_from: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    effective_until: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
     },
   },
   {
-    sequelize,
-    modelName: 'DoctorSchedule',
-    tableName: 'doctor_schedules',
-    timestamps: false,
-    indexes: [{ name: 'idx_doctor_day', fields: ['doctor_id', 'day_of_week'] }],
+    tableName: 'doctor_schedule',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+    indexes: [
+      {
+        name: 'idx_schedule_staff',
+        fields: ['staff_id'],
+      },
+      {
+        name: 'idx_schedule_day',
+        fields: ['day_of_week'],
+      },
+      {
+        name: 'idx_schedule_active',
+        fields: ['is_active'],
+      },
+    ],
   }
 );
 

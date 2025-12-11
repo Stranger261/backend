@@ -17,26 +17,26 @@ router.get(
   authController.getAllUser
 );
 router.get(
-  '/user/:userId',
+  '/user/:userUuid',
   authenticate,
   authorizeRole('admin', 'receptionist'),
   authController.getUserById
 );
 router.get('/user-profile', authenticate, authController.getProfile);
 router.patch(
-  '/quick-status-action/:userId',
+  '/quick-status-action/:userUuid',
   authenticate,
   authorizeRole('admin', 'receptionist'),
   authController.activateAndInactivateToggle
 );
 router.patch(
-  '/update/:userId',
+  '/update/:userUuid',
   authenticate,
   authorizeRole('admin', 'patient'),
   authController.updateUser
 );
 router.patch(
-  '/delete/:id',
+  '/delete/:userUuid',
   authenticate,
   authorizeRole('admin'),
   authController.deleteUser

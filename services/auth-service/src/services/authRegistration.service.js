@@ -11,7 +11,6 @@ import auditHelper from '../../../shared/utils/logger.util.js';
 // shared util
 import { patientApi } from '../../../shared/utils/apiUrl.util.js';
 import AppError from '../../../shared/utils/AppError.util.js';
-import { activeRecord } from '../../../shared/helpers/queryFilters.helper.js';
 
 import {
   User,
@@ -306,11 +305,11 @@ export default new (class authRegistration {
     }
   }
 
-  async resendOTP(userId, ipAddress) {
+  async resendOTP(userUuid, ipAddress) {
     const transaction = await sequelize.transaction();
     try {
       const user = await User.findOne({
-        where: { user_id: userId },
+        where: { user_uuid: userUuid },
         transaction,
       });
 
@@ -642,67 +641,4 @@ export default new (class authRegistration {
         : new AppError('Face verification failed', 500);
     }
   }
-
-  async compensatePatientCreation(
-    patientId,
-    ipAddress,
-    userAgent,
-    maxRetries = 3
-  ) {
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        await patientApi.delete(`/patients/${patientId}/compensate`, {
-          headers: {
-            'X-Request-IP': ipAddress,
-            'X-User-Agent': userAgent,
-          },
-          timeout: 10000,
-        });
-
-        // Log compensation success
-        // await logAudit(
-        //   'system', // or you might want to pass the original user_id
-        //   'patient_compensation',
-        //   'success',
-        //   ipAddress,
-        //   userAgent,
-        //   null,
-        //   { patient_id: patientId }
-        // );
-
-        return;
-      } catch (error) {
-        console.log('Compensate saga error: ', error);
-
-        if (attempt === maxRetries) {
-          console.log(
-            '💀 ALL COMPENSATION ATTEMPTS FAILED - MANUAL INTERVENTION REQUIRED:',
-            {
-              patientId,
-              lastError: error.message,
-            }
-          );
-
-          // await logAudit(
-          //   'system',
-          //   'patient_compensation',
-          //   'failure',
-          //   ipAddress,
-          //   userAgent,
-          //   `All compensation attempts failed: ${compensationError.message}`,
-          //   { patient_id: patientId }
-          // );
-
-          break;
-        }
-        const delay = 1000 * Math.pow(2, attempt - 1);
-        console.log(
-          `⏳ Waiting ${delay}ms before next compensation attempt...`
-        );
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
 })();
-
-// COMPENSATE PATIENT and also try to compensate the completeOnboarding!

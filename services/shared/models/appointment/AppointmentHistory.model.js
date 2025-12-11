@@ -1,20 +1,8 @@
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes } from 'sequelize';
 import sequelize from '../../config/db.config.js';
 
-/**
- * AppointmentHistory Model
- * Tracks all changes made to appointments (audit trail)
- */
-class AppointmentHistory extends Model {
-  static async getAppointmentHistory(appointmentId) {
-    return await this.findAll({
-      where: { appointment_id: appointmentId },
-      order: [['created_at', 'DESC']],
-    });
-  }
-}
-
-AppointmentHistory.init(
+const AppointmentHistory = sequelize.define(
+  'AppointmentHistory',
   {
     history_id: {
       type: DataTypes.INTEGER,
@@ -25,7 +13,7 @@ AppointmentHistory.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'appointments',
+        model: 'appointment',
         key: 'appointment_id',
       },
     },
@@ -68,7 +56,10 @@ AppointmentHistory.init(
     changed_by: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      comment: 'user_id or staff_id who made the change',
+      references: {
+        model: 'user',
+        key: 'user_id',
+      },
     },
     change_reason: {
       type: DataTypes.TEXT,
@@ -76,25 +67,20 @@ AppointmentHistory.init(
     },
     created_at: {
       type: DataTypes.DATE,
+      allowNull: false,
       defaultValue: DataTypes.NOW,
     },
   },
   {
-    sequelize,
-    modelName: 'AppointmentHistory',
     tableName: 'appointment_history',
     timestamps: false,
     indexes: [
       {
-        name: 'idx_appointment_id',
+        name: 'idx_appointment_history_appointment',
         fields: ['appointment_id'],
       },
       {
-        name: 'idx_action_type',
-        fields: ['action_type'],
-      },
-      {
-        name: 'idx_created_at',
+        name: 'idx_appointment_history_created',
         fields: ['created_at'],
       },
     ],
