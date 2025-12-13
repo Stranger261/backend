@@ -6,7 +6,7 @@ import { setupAssociations } from '../../shared/models/index.js';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 56741;
+const PORT = process.env.PORT || 56731;
 
 (async () => {
   try {
@@ -25,5 +25,7 @@ const PORT = process.env.PORT || 56741;
     });
   } catch (error) {
     console.log('Server error: ', error);
+    console.error(error);
+    process.exit(1);
   }
 })();

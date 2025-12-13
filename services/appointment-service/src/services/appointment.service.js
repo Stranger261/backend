@@ -453,6 +453,153 @@ class AppointmentService {
     }
   }
 
+  async getDoctorAppointments(doctorId, filters = {}) {
+    try {
+      const { status, from_date, to_date, page = 1, limit = 20 } = filters;
+
+      const doctor = await Staff.findOne({ where: { staff_uuid: doctorId } });
+
+      const where = { doctor_id: doctor.staff_id };
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (from_date && to_date) {
+        where.appointment_date = { [Op.between]: [from_date, to_date] };
+      }
+
+      const offset = (page - 1) * limit;
+
+      const { rows: appointments, count: total } =
+        await Appointment.findAndCountAll({
+          where,
+          limit: parseInt(limit),
+          offset,
+          order: [
+            ['appointment_date', 'ASC'],
+            ['start_time', 'ASC'],
+          ],
+          include: [
+            {
+              model: Patient,
+              as: 'patient',
+              include: [
+                {
+                  model: Person,
+                  as: 'person',
+                  attributes: [
+                    'first_name',
+                    'middle_name',
+                    'last_name',
+                    'date_of_birth',
+                    'gender',
+                    'gender_specification',
+                  ],
+                  include: [{ model: User, as: 'user', attributes: ['phone'] }],
+                },
+              ],
+            },
+            {
+              model: Department,
+              as: 'department',
+            },
+          ],
+        });
+
+      return {
+        appointments,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(offset),
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error('Get doctor appointments error:', error);
+      throw new AppError('Failed to get doctor appointments', 500);
+    }
+  }
+
+  async getTodaysAppointments(filters = {}) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    console.log(today);
+    try {
+      const { doctor_uuid, status, page = 1, limit = 20 } = filters;
+
+      const where = { appointment_date: today };
+
+      if (status) {
+        where.status = status;
+      }
+      if (doctor_uuid) {
+        where.staff_uuid = doctor_uuid;
+      }
+
+      const offset = (page - 1) * limit;
+
+      const { rows: appointments, count: total } =
+        await Appointment.findAndCountAll({
+          where,
+          limit: parseInt(limit),
+          offset,
+          order: [['start_time', 'ASC']],
+          include: [
+            {
+              model: Patient,
+              as: 'patient',
+              include: [
+                {
+                  model: Person,
+                  as: 'person',
+                  attributes: [
+                    'first_name',
+                    'middle_name',
+                    'last_name',
+                    'date_of_birth',
+                    'gender',
+                  ],
+                },
+                {
+                  model: Staff,
+                  as: 'doctor',
+                  include: [
+                    {
+                      model: Person,
+                      as: 'person',
+                      attributes: ['first_name', 'middle_name', 'last_name'],
+                    },
+                    {
+                      model: Department,
+                      as: 'department',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+
+      return {
+        date: today,
+        appointments,
+        pagination: {
+          limit: parseInt(limit),
+          page: parseInt(page),
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.log(`Get today's appointments failed: `, error);
+      throw error instanceof AppError
+        ? error
+        : AppError(`Failed to fetch today's appointments.`, 500);
+    }
+  }
+
   async checkInAppointment(appointmentId, checkedInBy) {
     const transaction = await sequelize.transaction();
 
@@ -732,84 +879,6 @@ class AppointmentService {
         description: 'Online video consultation',
       },
     ];
-  }
-
-  async getTodaysAppointments(filters = {}) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    console.log(today);
-    try {
-      const { doctor_uuid, status, page = 1, limit = 20 } = filters;
-
-      const where = { appointment_date: today };
-
-      if (status) {
-        where.status = status;
-      }
-      if (doctor_uuid) {
-        where.staff_uuid = doctor_uuid;
-      }
-
-      const offset = (page - 1) * limit;
-
-      const { rows: appointments, count: total } =
-        await Appointment.findAndCountAll({
-          where,
-          limit: parseInt(limit),
-          offset,
-          order: [['start_time', 'ASC']],
-          include: [
-            {
-              model: Patient,
-              as: 'patient',
-              include: [
-                {
-                  model: Person,
-                  as: 'person',
-                  attributes: [
-                    'first_name',
-                    'middle_name',
-                    'last_name',
-                    'date_of_birth',
-                    'gender',
-                  ],
-                },
-                {
-                  model: Staff,
-                  as: 'doctor',
-                  include: [
-                    {
-                      model: Person,
-                      as: 'person',
-                      attributes: ['first_name', 'middle_name', 'last_name'],
-                    },
-                    {
-                      model: Department,
-                      as: 'department',
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        });
-
-      return {
-        date: today,
-        appointments,
-        pagination: {
-          limit: parseInt(limit),
-          page: parseInt(page),
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    } catch (error) {
-      console.log(`Get today's appointments failed: `, error);
-      throw error instanceof AppError
-        ? error
-        : AppError(`Failed to fetch today's appointments.`, 500);
-    }
   }
 
   async updateAppointmentStatus(appointmentId, newStatus, updatedBy) {

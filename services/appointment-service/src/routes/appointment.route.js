@@ -38,6 +38,14 @@ router.get('/calculate-fee', authenticate, appointmentController.calculateFee);
 // STAFF ROUTES
 // ==================================================
 
+// Get doctor's appointments (for doctor/receptionist view)
+router.get(
+  '/doctors/:doctorUuid/appointments',
+  authenticate,
+  authorizeRole('admin', 'doctor', 'receptionist'),
+  appointmentController.getDoctorAppointments
+);
+
 // Get today's appointments (for doctors/receptionists)
 router.get(
   '/today',

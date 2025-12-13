@@ -5,7 +5,7 @@ import { setupAssociations } from '../../shared/models/index.js';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 56742;
+const PORT = process.env.PORT || 56743;
 (async () => {
   try {
     await sequelize.authenticate();

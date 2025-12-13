@@ -58,16 +58,3 @@ export const getDepartmentAvailability = asyncHandler(async (req, res) => {
     res
   );
 });
-
-export const getDoctorAppointments = asyncHandler(async (req, res) => {
-  const { doctorUuid } = req.params;
-  const filters = req.query;
-
-  const result = await doctorService.getDoctorAppointments(doctorUuid, filters);
-  messageSender(
-    200,
-    'Doctor appointments retrieved successfully.',
-    result,
-    res
-  );
-});

@@ -581,6 +581,7 @@ export default new (class authRegistration {
         await user.update(
           {
             registration_status: 'completed',
+            account_status: 'active',
             verified_at: new Date(),
           },
           { transaction }

@@ -14,6 +14,7 @@ export const sanitizeUser = (user, roles = []) => {
     email_verified: userData.email_verified,
     person: user?.person,
     patient: user?.person?.patient,
+    staff: user?.person?.staff,
     created_at: userData.created_at,
     updated_at: userData.updated_at,
     verified_at: userData.verified_at,

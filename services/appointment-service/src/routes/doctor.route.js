@@ -2,10 +2,7 @@
 
 import express from 'express';
 import * as doctorController from '../controllers/doctor.controller.js';
-import {
-  authenticate,
-  authorizeRole,
-} from '../../../shared/middleware/auth.middleware.js';
+import { authenticate } from '../../../shared/middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -34,14 +31,6 @@ router.get(
   '/departments/:departmentId/availability',
   authenticate,
   doctorController.getDepartmentAvailability
-);
-
-// Get doctor's appointments (for doctor/receptionist view)
-router.get(
-  '/doctors/:doctorUuid/appointments',
-  authenticate,
-  authorizeRole('admin', 'doctor', 'receptionist'),
-  doctorController.getDoctorAppointments
 );
 
 export default router;

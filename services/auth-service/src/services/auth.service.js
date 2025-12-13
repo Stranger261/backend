@@ -78,7 +78,6 @@ export default new (class authService {
         },
         { transaction }
       );
-
       if (!user) {
         const ipAttempts = await incrWithTTL(ipKey, THRESHOLD.IP_TTL);
         const emailAttempts = await incrWithTTL(emailKey, THRESHOLD.EMAIL_TTL);
@@ -427,6 +426,16 @@ export default new (class authService {
                   'mrn',
                   'registration_type',
                   'patient_status',
+                ],
+              },
+              {
+                model: Staff,
+                as: 'staff',
+                attributes: [
+                  'staff_id',
+                  'staff_uuid',
+                  'role',
+                  'specialization',
                 ],
               },
             ],
