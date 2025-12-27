@@ -262,7 +262,6 @@ class DoctorService {
       if (doctors.length === 0) {
         return [];
       }
-      console.log('doctors: ', doctors);
 
       // Get availability for each doctor
       const allSchedules = await Promise.all(

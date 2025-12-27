@@ -53,6 +53,7 @@ import Admission from './ibms/Admission.model.js';
 import BedAssignment from './ibms/BedAssignment.model.js';
 import IdSequence from './ibms/IdSequence.model.js';
 
+import Notification from './notification/notification.model.js';
 // Export all models
 export {
   // Auth Models
@@ -111,6 +112,9 @@ export {
   Admission,
   BedAssignment,
   IdSequence,
+
+  // Notification Model
+  Notification,
 };
 
 // ============================================================================

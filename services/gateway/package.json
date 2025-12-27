@@ -1,0 +1,23 @@
+{
+  "name": "gateway",
+  "version": "1.0.0",
+  "description": "API Gateway for microservices",
+  "main": "gateway.js",
+  "type": "module",
+  "scripts": {
+    "start": "node gateway.js",
+    "dev": "nodemon gateway.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "http-proxy": "^1.18.1",
+    "socket.io": "^4.8.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}

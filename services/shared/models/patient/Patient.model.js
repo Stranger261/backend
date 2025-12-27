@@ -1,5 +1,6 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../config/db.config.js';
+import IdSequence from '../ibms/IdSequence.model.js';
 
 class Patient extends Model {
   static async findByMRN(mrn) {

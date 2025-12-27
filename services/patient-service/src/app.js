@@ -13,7 +13,13 @@ const app = express();
 // 1. Apply CORS FIRST - this handles preflight automatically
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'https://core1.health-ease-hospital.com'],
+    origin: [
+      'http://localhost:5173',
+      ,
+      'http://192.168.100.11:5173',
+      'https://core1.health-ease-hospital.com',
+      'https://pessimistically-sociogenic-misha.ngrok-free.dev',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -54,6 +60,7 @@ app.get('/health', (req, res) => {
     cors: {
       allowedOrigins: [
         'http://localhost:5173',
+        'http://192.168.100.11:5173',
         'https://core1.health-ease-hospital.com',
       ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

@@ -13,7 +13,11 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'https://core1.health-ease-hospital.com'],
+    origin: [
+      'http://localhost:5173',
+      'http://192.168.100.11:5173',
+      'https://core1.health-ease-hospital.com',
+    ],
     credentials: true,
   })
 );

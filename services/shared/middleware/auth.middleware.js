@@ -5,28 +5,18 @@ import { asyncHandler } from './asyncHandler.middleware.js';
 
 export const authenticate = asyncHandler(async (req, _, next) => {
   try {
-    console.log('🔐 AUTHENTICATE MIDDLEWARE - START');
-    console.log('   Current time:', new Date().toISOString());
-
     let token = null;
 
     if (req.cookies?.jwt) {
       token = req.cookies.jwt;
-      console.log('   Token from cookie:', token ? 'Present' : 'Missing');
     } else if (req.headers.authorization?.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
-      console.log('   Token from header:', token ? 'Present' : 'Missing');
     }
 
     if (!token) {
       console.log('❌ No token found');
       throw new AppError('Unauthorized. Token is missing.', 401);
     }
-
-    console.log(
-      '   Token received (first 50 chars):',
-      token.substring(0, 50) + '...'
-    );
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 

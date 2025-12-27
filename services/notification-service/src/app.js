@@ -4,22 +4,26 @@ import cors from 'cors';
 
 import errorHandler from '../../shared/middleware/errorHandler.middleware.js';
 
+import notificationRoute from './routes/notification.route.js';
+
 const app = express();
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use(
   cors({
     origin: [
-      'https://core1.health-ease-hospital.com',
       'http://localhost:5173',
       'http://192.168.100.11:5173',
+      'https://core1.health-ease-hospital.com',
     ],
     credentials: true,
   })
 );
+
 app.use(cookieParser());
+
+app.use('/api/v1/notifications', notificationRoute);
 
 app.use(errorHandler);
 

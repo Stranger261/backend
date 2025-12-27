@@ -4,13 +4,12 @@ import appointmentService from '../services/appointment.service.js';
 
 // Book new appointment
 export const bookAppointment = asyncHandler(async (req, res) => {
-  const isStaff = req.user?.staff_uuid ? true : false;
+  const isStaff = req.user?.staff_id ? true : false;
 
   const appointmentData = {
     ...req.body,
     doctor_uuid: req.body.doctor_uuid,
-    created_by_uuid: isStaff ? req.user.staff_uuid : req.user.user_uuid,
-    created_by_type: isStaff ? 'staff' : 'user',
+    created_by_uuid: isStaff ? req.user.staff_id : req.user.user_id,
   };
 
   const appointment = await appointmentService.bookAppointment(appointmentData);

@@ -1,12 +1,6 @@
 import { Op } from 'sequelize';
 import sequelize from '../../../shared/config/db.config.js';
-import {
-  format,
-  addDays,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-} from 'date-fns';
+import { format } from 'date-fns';
 import dayjs from 'dayjs';
 
 import AppError from '../../../shared/utils/AppError.util.js';
@@ -18,11 +12,13 @@ import {
   Department,
   DoctorLeave,
   IdSequence,
+  Notification,
   Patient,
   Person,
   Staff,
   User,
 } from '../../../shared/models/index.js';
+import { emitToRoom } from '../../../shared/utils/socketEmitter.js';
 
 class AppointmentService {
   constructor() {
@@ -174,11 +170,25 @@ class AppointmentService {
         throw new AppError('Missing required fields', 400);
       }
 
+      // find the doctor
       const doctor = await Staff.findOne(
         {
           where: {
             staff_uuid: doctor_uuid,
           },
+          include: [
+            {
+              model: Person,
+              as: 'person',
+              include: [
+                {
+                  model: User,
+                  as: 'user',
+                  attributes: ['user_uuid', 'phone', 'email'],
+                },
+              ],
+            },
+          ],
         },
         { transaction }
       );
@@ -207,12 +217,21 @@ class AppointmentService {
         }
       }
 
-      const person = await Person.findByPk(person_id);
+      // find the person
+      const person = await Person.findByPk(person_id, {
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['user_uuid', 'email', 'phone'],
+          },
+        ],
+      });
 
       if (!person) {
         throw new AppError('Person not found', 404);
       }
-
+      // create patient if no data yet
       const patient = await Patient.createPatient({
         person_id,
         mrn: null, // auto-generate
@@ -222,6 +241,7 @@ class AppointmentService {
         transaction,
       });
 
+      // check if the appointment time and date with doctor has conflict
       const hasConflict = await Appointment.hasConflict(
         doctor_uuid,
         appointment_date,
@@ -232,6 +252,7 @@ class AppointmentService {
         throw new AppError('This time slot is already booked', 409);
       }
 
+      // get the pricing
       const pricing = await this.calculateAppointmentFee(
         doctor.staff_id,
         department_id,
@@ -239,9 +260,11 @@ class AppointmentService {
         duration_minutes
       );
 
+      // create appointment number and finish time
       const appointmentNumber = await IdSequence.getNextValue('appointment');
       const finishTime = end_time ? end_time : this.addMinutes(start_time, 30);
 
+      // create new appointment
       const appointment = await Appointment.create(
         {
           appointment_number: appointmentNumber,
@@ -271,7 +294,7 @@ class AppointmentService {
       if (!appointment) {
         throw new AppError('Creating new appointment failed', 400);
       }
-
+      // create appointment history
       const aptHistory = await AppointmentHistory.create(
         {
           appointment_id: appointment.appointment_id,
@@ -293,11 +316,57 @@ class AppointmentService {
         throw new AppError('Creating new appointment failed', 400);
       }
 
+      // creating notification for doctor
+      const appointmentNotification = await Notification.create(
+        {
+          user_uuid: doctor?.person?.user?.user_uuid, // receiver
+          type: 'new_appointment',
+          title: 'New Appointment.',
+          message: `New appointment booked for ${appointment_date} at ${start_time}`,
+          data: JSON.stringify(appointment),
+        },
+        { transaction }
+      );
+
+      if (!appointmentNotification) {
+        throw new AppError('Notification not found.', 404);
+      }
+
       await transaction.commit();
 
-      return await this.getAppointmentById(appointment.appointment_id);
+      const newAppointment = await this.getAppointmentById(
+        appointment.appointment_id
+      );
+
+      try {
+        // create room name
+        const roomName = `${doctor_uuid}_${appointment_date}`;
+        const lastname = doctor?.person?.last_name;
+
+        // emit (for live) data
+        await emitToRoom(roomName, 'slot-taken', {
+          doctor_uuid,
+          date: appointment_date,
+          time: start_time,
+          appointment_id: appointment.appointment_id,
+        });
+
+        // for doctor
+        await emitToRoom(
+          `doctor-${doctor_uuid}-${lastname}`,
+          'new-appointment-booked',
+          newAppointment
+        );
+      } catch (error) {
+        // Log but don't fail the request
+        console.error('⚠️ Socket emit failed:', socketError.message);
+      }
+
+      return newAppointment;
     } catch (error) {
-      await transaction.rollback();
+      if (!transaction.finished) {
+        await transaction.rollback();
+      }
       console.error('Book appointment error:', error);
       throw error instanceof AppError
         ? error
@@ -323,6 +392,9 @@ class AppointmentService {
                   'last_name',
                   'date_of_birth',
                   'gender',
+                ],
+                include: [
+                  { model: User, as: 'user', attributes: ['phone', 'email'] },
                 ],
               },
             ],
@@ -454,8 +526,17 @@ class AppointmentService {
   }
 
   async getDoctorAppointments(doctorId, filters = {}) {
+    console.log('filters: ', filters);
     try {
-      const { status, from_date, to_date, page = 1, limit = 20 } = filters;
+      const {
+        status,
+        from_date,
+        appointment_type,
+        priority,
+        to_date,
+        page = 1,
+        limit = 20,
+      } = filters;
 
       const doctor = await Staff.findOne({ where: { staff_uuid: doctorId } });
 
@@ -467,6 +548,14 @@ class AppointmentService {
 
       if (from_date && to_date) {
         where.appointment_date = { [Op.between]: [from_date, to_date] };
+      }
+
+      if (appointment_type) {
+        where.appointment_type = appointment_type;
+      }
+
+      if (priority) {
+        where.priority = priority;
       }
 
       const offset = (page - 1) * limit;
@@ -496,7 +585,9 @@ class AppointmentService {
                     'gender',
                     'gender_specification',
                   ],
-                  include: [{ model: User, as: 'user', attributes: ['phone'] }],
+                  include: [
+                    { model: User, as: 'user', attributes: ['phone', 'email'] },
+                  ],
                 },
               ],
             },

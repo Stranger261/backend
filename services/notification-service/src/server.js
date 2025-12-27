@@ -1,12 +1,12 @@
 import dotenv from 'dotenv';
 
 import app from './app.js';
-import sequelize from '../../shared/config/db.config.js';
-import { setupAssociations } from '../../shared/models/index.js';
+import { sequelize, setupAssociations } from '../../shared/models/index.js';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 56733;
+const PORT = process.env.PORT || 56737;
+
 (async () => {
   try {
     await sequelize.authenticate();
@@ -15,15 +15,15 @@ const PORT = process.env.PORT || 56733;
     setupAssociations();
     console.log('✅ Model associations configured.');
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.DEVELOPMENT === 'development') {
       await sequelize.sync({ force: false });
       console.log('✅ Database synced.');
     }
 
     app.listen(PORT, () => {
-      console.log(`Appointment service is working at PORT: ${PORT}`);
+      console.log('Notification port is working at :', PORT);
     });
   } catch (error) {
-    console.log('Server error: ', error);
+    console.error(error);
   }
 })();
