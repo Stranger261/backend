@@ -50,7 +50,7 @@ PersonContact.init(
     },
     deleted_at: {
       type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
+      defaultValue: null,
     },
   },
   {
@@ -62,7 +62,6 @@ PersonContact.init(
     updatedAt: 'updated_at',
     deletedAt: 'deleted_at',
     paranoid: true,
-    updatedAt: false,
     indexes: [{ name: 'idx_person_id', fields: ['person_id'] }],
   }
 );

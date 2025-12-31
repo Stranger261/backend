@@ -576,6 +576,7 @@ export default new (class authRegistration {
       });
 
       const { verified, confidence, match_details } = verificationRes.data.data;
+      console.log(verified, confidence, match_details);
 
       if (verified) {
         await user.update(
@@ -607,9 +608,14 @@ export default new (class authRegistration {
         await transaction.commit();
         console.log('✅ Auth Service: Face verification successful');
       } else {
-        await transaction.rollback();
         console.log('❌ Auth Service: Face verification failed');
+        throw new AppError(
+          'User registered face does not match with live capture.',
+          400
+        );
       }
+
+      console.log('still got this but the face is not the same');
 
       return {
         verified,

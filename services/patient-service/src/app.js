@@ -7,6 +7,7 @@ import errorHandler from '../../shared/middleware/errorHandler.middleware.js';
 import facePlusPlusRoutes from './routes/facePlusPlus.route.js';
 import addressRoutes from './routes/address.route.js';
 import personRoutes from './routes/person.route.js';
+import patientRoutes from './routes/patient.route.js';
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use(cookieParser());
 app.use('/api/v1/faceplusplus', facePlusPlusRoutes);
 app.use('/api/v1/address', addressRoutes);
 app.use('/api/v1/person', personRoutes);
+app.use('/api/v1/patients', patientRoutes);
 
 // 5. Health check endpoint to test connectivity
 app.get('/health', (req, res) => {

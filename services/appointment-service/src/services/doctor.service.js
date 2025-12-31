@@ -15,6 +15,9 @@ import {
   DoctorSchedule,
   DoctorLeave,
   Appointment,
+  sequelize,
+  User,
+  MedicalRecord,
 } from '../../../shared/models/index.js';
 import AppError from '../../../shared/utils/AppError.util.js';
 

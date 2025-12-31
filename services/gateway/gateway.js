@@ -17,6 +17,7 @@ const routes = {
   '/api/v1/faceplusplus': 'http://127.0.0.1:56732',
   '/api/v1/address': 'http://127.0.0.1:56732',
   '/api/v1/person': 'http://127.0.0.1:56732',
+  '/api/v1/patients': 'http://127.0.0.1:56732',
   '/api/v1/doctors': 'http://127.0.0.1:56733',
   '/api/v1/appointments': 'http://127.0.0.1:56733',
   '/api/v1/notifications': 'http://127.0.0.1:56737',
