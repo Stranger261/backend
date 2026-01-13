@@ -12,7 +12,10 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     created_by_uuid: isStaff ? req.user.staff_id : req.user.user_id,
   };
 
-  const appointment = await appointmentService.bookAppointment(appointmentData);
+  const appointment = await appointmentService.bookAppointment(
+    appointmentData,
+    req
+  );
 
   messageSender(201, 'Appointment booked successfully', appointment, res);
 });

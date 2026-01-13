@@ -14,4 +14,10 @@ router.get(
   patientController.getDoctorsPatients
 );
 
+router.get(
+  '/:patientUuid/med-history',
+  authenticate,
+  patientController.getPatientMedicalHistory
+);
+
 export default router;

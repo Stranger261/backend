@@ -1,7 +1,7 @@
 export const socketHandler = io => {
   console.log('🔌 Socket handler initialized');
   io.on('connection', socket => {
-    console.log('User connected: ', socket.id);
+    socket.emit('me', socket.id);
 
     // appointment room start
     socket.on('join-appointment-room', ({ doctor_uuid, date }) => {

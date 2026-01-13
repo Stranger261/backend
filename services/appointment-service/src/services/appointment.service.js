@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import sequelize from '../../../shared/config/db.config.js';
 import { format } from 'date-fns';
 import dayjs from 'dayjs';
+import axios from 'axios';
 
 import AppError from '../../../shared/utils/AppError.util.js';
 import {
@@ -140,7 +141,7 @@ class AppointmentService {
   }
 
   // book appointment
-  async bookAppointment(appointmentData) {
+  async bookAppointment(appointmentData, req) {
     const transaction = await sequelize.transaction();
 
     try {
@@ -149,6 +150,7 @@ class AppointmentService {
         department_id,
         doctor_uuid, // this is staff_id but the role is doctor so lets assume doctor_id for better
         appointment_date,
+        is_online_consultation,
         start_time,
         end_time = null,
         duration_minutes = 30,
@@ -274,6 +276,7 @@ class AppointmentService {
           appointment_type,
           appointment_date,
           appointment_time: start_time,
+          is_online_consultation,
           start_time,
           end_time: finishTime,
           duration_minutes,
@@ -294,6 +297,7 @@ class AppointmentService {
       if (!appointment) {
         throw new AppError('Creating new appointment failed', 400);
       }
+
       // create appointment history
       const aptHistory = await AppointmentHistory.create(
         {
@@ -334,6 +338,33 @@ class AppointmentService {
 
       await transaction.commit();
 
+      // create room for online consultations
+      if (is_online_consultation) {
+        const newRoom = await axios.post(
+          `${process.env.BASE_URL}/online-video/create-room`,
+          { appointmentId: appointment.appointment_id },
+          {
+            withCredentials: true,
+            headers: {
+              Authorization: `Bearer ${
+                req.cookies?.jwt || req.headers.authorization?.split(' ')[1]
+              }`,
+              'x-internal-api-key': process.env.INTERNAL_API_KEY,
+            },
+          }
+        );
+
+        if (!newRoom) {
+          throw new AppError(
+            'Failed to create an online consultation. Please try again later.',
+            500
+          );
+        }
+        console.log(newRoom);
+
+        appointment.update({ room_id: newRoom.data.room_id }, { transaction });
+      }
+
       const newAppointment = await this.getAppointmentById(
         appointment.appointment_id
       );
@@ -367,7 +398,7 @@ class AppointmentService {
       if (!transaction.finished) {
         await transaction.rollback();
       }
-      console.error('Book appointment error:', error);
+      console.error('Book appointment error:', error.message);
       throw error instanceof AppError
         ? error
         : new AppError('Failed to book appointment', 500);
@@ -455,6 +486,8 @@ class AppointmentService {
       const patientId = patient.patient_id;
       const {
         status,
+        search,
+        appointment_mode,
         from_date,
         to_date,
         appointment_type,
@@ -474,6 +507,19 @@ class AppointmentService {
 
       if (appointment_type) {
         where.appointment_type = appointment_type;
+      }
+
+      if (appointment_mode) {
+        where.is_online_consultation =
+          appointment_mode === 'online' ? true : false;
+      }
+
+      if (search) {
+        where[Op.or] = [
+          { reason: { [Op.like]: `%${search}%` } },
+          { '$doctor.person.first_name$': { [Op.like]: `%${search}%` } },
+          { '$doctor.person.last_name$': { [Op.like]: `%${search}%` } },
+        ];
       }
 
       const offset = (page - 1) * limit;
@@ -532,6 +578,7 @@ class AppointmentService {
         status,
         from_date,
         appointment_type,
+        appointment_mode,
         priority,
         to_date,
         page = 1,
@@ -552,6 +599,11 @@ class AppointmentService {
 
       if (appointment_type) {
         where.appointment_type = appointment_type;
+      }
+
+      if (appointment_mode) {
+        where.is_online_consultation =
+          appointment_mode === 'online' ? true : false;
       }
 
       if (priority) {

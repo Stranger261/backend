@@ -39,6 +39,14 @@ class NotificationService {
     }
   }
 
+  async getUserNotificationCount(userUuid) {
+    const unreadNotifCount = await Notification.count({
+      where: { is_read: false, user_uuid: userUuid },
+    });
+
+    return { unreadNotifCount };
+  }
+
   async readNotification(notifId) {
     const transaction = await sequelize.transaction();
     try {

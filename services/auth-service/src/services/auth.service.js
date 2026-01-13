@@ -17,6 +17,8 @@ import { patientApi } from '../../../shared/utils/apiUrl.util.js';
 import {
   Patient,
   Person,
+  PersonAddress,
+  PersonContact,
   Role,
   Staff,
   User,
@@ -420,13 +422,6 @@ export default new (class authService {
               {
                 model: Patient,
                 as: 'patient',
-                attributes: [
-                  'patient_id',
-                  'patient_uuid',
-                  'mrn',
-                  'registration_type',
-                  'patient_status',
-                ],
               },
               {
                 model: Staff,
@@ -438,6 +433,8 @@ export default new (class authService {
                   'specialization',
                 ],
               },
+              { model: PersonAddress, as: 'addresses' },
+              { model: PersonContact, as: 'contacts' },
             ],
           },
         ],

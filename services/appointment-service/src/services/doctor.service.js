@@ -215,7 +215,7 @@ class DoctorService {
         where: {
           doctor_id: doctorId,
           appointment_date: { [Op.between]: [start, end] },
-          status: { [Op.notIn]: ['cancelled', 'no_show'] },
+          status: { [Op.notIn]: ['cancelled', 'no_show', 'completed'] },
         },
         attributes: ['appointment_date', 'start_time', 'end_time'],
       });

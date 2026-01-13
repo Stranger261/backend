@@ -15,6 +15,16 @@ export const getUserNotification = asyncHandler(async (req, res) => {
   messageSender(200, 'User notification fetch successfully.', userNotif, res);
 });
 
+export const getUserNotificationCount = asyncHandler(async (req, res) => {
+  const { user_uuid } = req.user;
+
+  const notifCount = await notificationService.getUserNotificationCount(
+    user_uuid
+  );
+
+  messageSender(200, 'Success', notifCount, res);
+});
+
 export const readNotification = asyncHandler(async (req, res) => {
   const { notifId } = req.params;
 

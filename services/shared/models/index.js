@@ -54,6 +54,9 @@ import BedAssignment from './ibms/BedAssignment.model.js';
 import IdSequence from './ibms/IdSequence.model.js';
 
 import Notification from './notification/notification.model.js';
+import VideoConsultation from './videocall/VideoConsultation.model.js';
+import VideoWaitingRoom from './videocall/VideoWaitingRoom.model.js';
+import ConsultationMessage from './videocall/ConsultationMessage.model.js';
 // Export all models
 export {
   // Auth Models
@@ -115,6 +118,11 @@ export {
 
   // Notification Model
   Notification,
+
+  // Videocall Models
+  VideoConsultation,
+  VideoWaitingRoom,
+  ConsultationMessage,
 };
 
 // ============================================================================
@@ -668,6 +676,55 @@ export const setupAssociations = () => {
   console.log('✅ All model associations setup completed!');
 };
 
+// ==========================================
+// VIDEO CONSULTATION ASSOCIATIONS
+// ==========================================
+
+// Appointment ↔ VideoConsultation (One-to-One)
+Appointment.hasOne(VideoConsultation, {
+  foreignKey: 'appointment_id',
+  as: 'videoConsultation',
+  onDelete: 'CASCADE',
+});
+
+VideoConsultation.belongsTo(Appointment, {
+  foreignKey: 'appointment_id',
+  as: 'appointment',
+});
+
+// Appointment ↔ VideoWaitingRoom (One-to-Many)
+Appointment.hasMany(VideoWaitingRoom, {
+  foreignKey: 'appointment_id',
+  as: 'waitingRoom',
+  onDelete: 'CASCADE',
+});
+VideoWaitingRoom.belongsTo(Appointment, {
+  foreignKey: 'appointment_id',
+  as: 'appointment',
+});
+
+// VideoConsultation ↔ ConsultationMessage (One-to-Many)
+VideoConsultation.hasMany(ConsultationMessage, {
+  foreignKey: 'consultation_id',
+  as: 'messages',
+  onDelete: 'CASCADE',
+});
+ConsultationMessage.belongsTo(VideoConsultation, {
+  foreignKey: 'consultation_id',
+  as: 'consultation',
+});
+
+// User ↔ VideoWaitingRoom (One-to-Many)
+
+User.hasMany(VideoWaitingRoom, {
+  foreignKey: 'user_id',
+  as: 'waitingRooms',
+});
+
+VideoWaitingRoom.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user',
+});
 // ============================================================================
 // DATABASE INITIALIZATION
 // ============================================================================
@@ -757,6 +814,11 @@ export default {
   Admission,
   BedAssignment,
   IdSequence,
+
+  // Videocall Models
+  VideoConsultation,
+  VideoWaitingRoom,
+  ConsultationMessage,
 
   // Database functions
   setupAssociations,

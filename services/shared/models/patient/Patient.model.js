@@ -1,14 +1,28 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../config/db.config.js';
 import IdSequence from '../ibms/IdSequence.model.js';
+import AppError from '../../utils/AppError.util.js';
 
 class Patient extends Model {
   static async findByMRN(mrn) {
     return await this.findOne({ where: { mrn } });
   }
 
+  static async findByUUID(patient_uuid) {
+    return await this.findOne({ where: { patient_uuid } });
+  }
+
   isActive() {
     return this.patient_status === 'active';
+  }
+
+  hasInsurance() {
+    return !!this.insurance_provider && !!this.insurance_number;
+  }
+
+  isInsuranceValid() {
+    if (!this.insurance_expiry) return false;
+    return new Date(this.insurance_expiry) > new Date();
   }
 
   static async createPatient({
@@ -52,6 +66,51 @@ class Patient extends Model {
 
     return patient;
   }
+
+  // Update medical information
+  async updateMedicalInfo({
+    height,
+    weight,
+    chronic_conditions,
+    current_medications,
+    blood_type,
+    medical_notes,
+    transaction,
+  }) {
+    const updates = {};
+
+    if (height !== undefined) updates.height = height;
+    if (weight !== undefined) updates.weight = weight;
+    if (chronic_conditions !== undefined)
+      updates.chronic_conditions = chronic_conditions;
+    if (current_medications !== undefined)
+      updates.current_medications = current_medications;
+    if (blood_type !== undefined) updates.blood_type = blood_type;
+    if (medical_notes !== undefined) updates.medical_notes = medical_notes;
+
+    await this.update(updates, { transaction });
+    return this;
+  }
+
+  // Update insurance information
+  async updateInsurance({
+    insurance_provider,
+    insurance_number,
+    insurance_expiry,
+    transaction,
+  }) {
+    const updates = {};
+
+    if (insurance_provider !== undefined)
+      updates.insurance_provider = insurance_provider;
+    if (insurance_number !== undefined)
+      updates.insurance_number = insurance_number;
+    if (insurance_expiry !== undefined)
+      updates.insurance_expiry = insurance_expiry;
+
+    await this.update(updates, { transaction });
+    return this;
+  }
 }
 
 Patient.init(
@@ -62,7 +121,6 @@ Patient.init(
       autoIncrement: true,
     },
 
-    // NEW: Public UUID for frontend
     patient_uuid: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
@@ -102,6 +160,52 @@ Patient.init(
       allowNull: false,
     },
 
+    // Medical Information
+    blood_type: {
+      type: DataTypes.ENUM('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'),
+      allowNull: true,
+      comment: 'Patient blood type',
+    },
+
+    height: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      comment: 'Height in centimeters',
+      validate: {
+        min: 0,
+        max: 300,
+      },
+    },
+
+    weight: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      comment: 'Weight in kilograms',
+      validate: {
+        min: 0,
+        max: 500,
+      },
+    },
+
+    chronic_conditions: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Chronic medical conditions',
+    },
+
+    current_medications: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Current medications',
+    },
+
+    medical_notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Additional medical notes',
+    },
+
+    // Insurance Information
     insurance_provider: {
       type: DataTypes.STRING(100),
       allowNull: true,
@@ -117,7 +221,26 @@ Patient.init(
       allowNull: true,
     },
 
+    // Additional Fields (Optional but recommended)
+    last_checkup_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      comment: 'Date of last medical checkup',
+    },
+
+    preferred_hospital: {
+      type: DataTypes.STRING(200),
+      allowNull: true,
+      comment: 'Preferred hospital for referrals',
+    },
+
+    // Timestamps
     created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
+
+    updated_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
@@ -128,11 +251,13 @@ Patient.init(
     tableName: 'patient',
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: false,
+    updatedAt: 'updated_at',
     indexes: [
       { name: 'idx_patient_uuid', fields: ['patient_uuid'] },
       { name: 'idx_mrn', fields: ['mrn'] },
       { name: 'idx_patient_status', fields: ['patient_status'] },
+      { name: 'idx_primary_doctor', fields: ['primary_doctor_id'] },
+      { name: 'idx_blood_type', fields: ['blood_type'] },
     ],
   }
 );

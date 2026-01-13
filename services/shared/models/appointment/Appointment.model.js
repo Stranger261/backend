@@ -106,6 +106,15 @@ Appointment.init(
       allowNull: false,
       defaultValue: 'consultation',
     },
+    is_online_consultation: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    video_consultation_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+    },
     appointment_date: {
       type: DataTypes.DATEONLY,
       allowNull: false,

@@ -57,6 +57,16 @@ Person.init(
       type: DataTypes.STRING(50),
       defaultValue: 'Filipino',
     },
+    civil_status: {
+      type: DataTypes.ENUM(
+        'single',
+        'married',
+        'widowed',
+        'divorced',
+        'separated'
+      ),
+      allowNull: true,
+    },
     face_encoding: {
       type: DataTypes.TEXT,
       allowNull: true,

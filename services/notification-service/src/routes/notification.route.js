@@ -12,6 +12,12 @@ router.get(
   notificationController.getUserNotification
 );
 
+router.get(
+  '/user-notificationsCount',
+  authenticate,
+  notificationController.getUserNotificationCount
+);
+
 router.patch(
   '/notification/:notifId',
   authenticate,

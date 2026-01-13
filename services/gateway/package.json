@@ -12,7 +12,8 @@
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "http-proxy": "^1.18.1",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.3"
   },
   "keywords": [],
   "author": "",

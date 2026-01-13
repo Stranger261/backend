@@ -10,3 +10,16 @@ export const getDoctorsPatients = asyncHandler(async (req, res) => {
 
   messageSender(200, `Doctor's patients fetch successfully`, patients, res);
 });
+
+export const getPatientMedicalHistory = asyncHandler(async (req, res) => {
+  const { patientUuid } = req.params;
+  const filters = req.query;
+
+  const patientMedHistory = await patientService.getPatientMedicalHistory(
+    patientUuid,
+    filters
+  );
+  console.log(patientMedHistory);
+
+  messageSender(200, 'Fetched successfully.', patientMedHistory, res);
+});

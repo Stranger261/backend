@@ -510,14 +510,8 @@ export default new (class personService {
         throw new AppError('Person not found.', 404);
       }
 
-      console.log(person);
-
       return person;
     } catch (error) {
-      console.error('❌ Patient Service: Get Person failed:', error.message);
-      console.log('═══════════════════════════════════════');
-      console.log('');
-
       throw error instanceof AppError
         ? error
         : new AppError('Face verification failed', 500);

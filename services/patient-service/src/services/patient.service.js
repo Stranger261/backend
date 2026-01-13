@@ -109,7 +109,10 @@ class patientServce {
             {
               model: Appointment,
               as: 'appointments',
-              where: { doctor_id: doctor.staff_id },
+              where: {
+                doctor_id: doctor.staff_id,
+                appointment_date: { [Op.gte]: new Date() },
+              },
               attributes: [
                 'appointment_id',
                 'appointment_date',
@@ -118,6 +121,7 @@ class patientServce {
               ],
               required: true,
               separate: true,
+              limit: 10,
             },
           ],
           order: [['created_at', 'DESC']],
@@ -286,6 +290,42 @@ class patientServce {
       throw error instanceof AppError
         ? error
         : new AppError('Total patients error', 500);
+    }
+  }
+
+  async getPatientMedicalHistory(patientUuid, filters = {}) {
+    try {
+      const { page = 1, limit = 20 } = filters;
+      const offset = (page - 1) * limit;
+
+      const patient = await Patient.findOne({
+        where: { patient_uuid: patientUuid },
+      });
+
+      if (!patient) {
+        throw new AppError('Patient not found.', 404);
+      }
+
+      const { rows: medHistory, count: totalHistory } =
+        await MedicalRecord.findAndCountAll({
+          where: { patient_id: patient.patient_id },
+          offset,
+        });
+
+      return {
+        medHistory,
+        pagination: {
+          page: parseInt(page),
+          total: totalHistory,
+          limit: parseInt(limit),
+          totalPages: Math.ceil(totalHistory / limit),
+        },
+      };
+    } catch (error) {
+      console.log('Failed to get patient medical history: ', error.message);
+      throw error instanceof AppError
+        ? error
+        : new AppError('Get patient medical history failed.', 500);
     }
   }
 }
