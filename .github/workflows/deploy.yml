@@ -22,7 +22,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          port: 2298
+          port: 22
           script: |
             # Check if the services folder exists, if not, create it
             if [ ! -d "/home/core1.health-ease-hospital.com/auth.health-ease-hospital.com/services" ]; then
@@ -38,7 +38,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          port: 2298
+          port: 22
           source: "services/*"  # This will upload everything inside the services folder
           target: "/home/core1.health-ease-hospital.com/auth.health-ease-hospital.com/services"  # Target is the services folder directly
           rm: true  # This ensures that the target folder gets cleaned before upload
@@ -54,7 +54,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          port: 2298
+          port: 22
           script: |
             cd /home/core1.health-ease-hospital.com/auth.health-ease-hospital.com/services
 
