@@ -37,9 +37,11 @@ export const socketHandler = io => {
       if (!doctor_uuid) return;
       const roomName = `doctor-${doctor_uuid}-${lastname}`;
 
-      console.log('doctor join the room: ', lastname, doctor_uuid);
-
       socket.join(roomName);
+
+      socket.emit('room-joined', {
+        roomName,
+      });
     });
     // end for doctor
 

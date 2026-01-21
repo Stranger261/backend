@@ -83,7 +83,7 @@ class AppointmentService {
           sequence.prefix,
           currentYear,
           1,
-          sequence.padding_length
+          sequence.padding_length,
         );
       }
 
@@ -98,7 +98,7 @@ class AppointmentService {
         sequence.prefix,
         sequence.year,
         sequence.current_value,
-        sequence.padding_length
+        sequence.padding_length,
       );
     } catch (error) {
       await transaction.rollback();
@@ -116,18 +116,18 @@ class AppointmentService {
     doctorId,
     departmentId,
     appointmentType,
-    durationMinutes = 30
+    durationMinutes = 30,
   ) {
     try {
       const pricing = await AppointmentPricing.getPricing(
         doctorId,
         departmentId,
-        appointmentType
+        appointmentType,
       );
       const cost = AppointmentPricing.calculateCost(
         pricing.base_fee,
         pricing.extension_fee_per_30min,
-        durationMinutes
+        durationMinutes,
       );
 
       return cost;
@@ -135,7 +135,7 @@ class AppointmentService {
       console.error('Calculate fee error:', error);
       throw new AppError(
         error.message || 'Failed to calculate appointment fee',
-        400
+        400,
       );
     }
   }
@@ -171,6 +171,7 @@ class AppointmentService {
       ) {
         throw new AppError('Missing required fields', 400);
       }
+      console.log(doctor_uuid);
 
       // find the doctor
       const doctor = await Staff.findOne(
@@ -192,7 +193,7 @@ class AppointmentService {
             },
           ],
         },
-        { transaction }
+        { transaction },
       );
 
       if (!doctor || doctor.role !== 'doctor') {
@@ -247,7 +248,7 @@ class AppointmentService {
       const hasConflict = await Appointment.hasConflict(
         doctor_uuid,
         appointment_date,
-        start_time
+        start_time,
       );
 
       if (hasConflict) {
@@ -259,7 +260,7 @@ class AppointmentService {
         doctor.staff_id,
         department_id,
         appointment_type,
-        duration_minutes
+        duration_minutes,
       );
 
       // create appointment number and finish time
@@ -291,7 +292,7 @@ class AppointmentService {
           created_by: created_by_id,
           created_by_type: creator_type,
         },
-        { transaction }
+        { transaction },
       );
 
       if (!appointment) {
@@ -313,7 +314,7 @@ class AppointmentService {
               ? 'First appointment - Patient record created'
               : 'Appointment created',
         },
-        { transaction }
+        { transaction },
       );
 
       if (!aptHistory) {
@@ -329,7 +330,7 @@ class AppointmentService {
           message: `New appointment booked for ${appointment_date} at ${start_time}`,
           data: JSON.stringify(appointment),
         },
-        { transaction }
+        { transaction },
       );
 
       if (!appointmentNotification) {
@@ -351,22 +352,21 @@ class AppointmentService {
               }`,
               'x-internal-api-key': process.env.INTERNAL_API_KEY,
             },
-          }
+          },
         );
 
         if (!newRoom) {
           throw new AppError(
             'Failed to create an online consultation. Please try again later.',
-            500
+            500,
           );
         }
-        console.log(newRoom);
 
         appointment.update({ room_id: newRoom.data.room_id }, { transaction });
       }
 
       const newAppointment = await this.getAppointmentById(
-        appointment.appointment_id
+        appointment.appointment_id,
       );
 
       try {
@@ -386,7 +386,7 @@ class AppointmentService {
         await emitToRoom(
           `doctor-${doctor_uuid}-${lastname}`,
           'new-appointment-booked',
-          newAppointment
+          newAppointment,
         );
       } catch (error) {
         // Log but don't fail the request
@@ -572,7 +572,6 @@ class AppointmentService {
   }
 
   async getDoctorAppointments(doctorId, filters = {}) {
-    console.log('filters: ', filters);
     try {
       const {
         status,
@@ -665,20 +664,71 @@ class AppointmentService {
     }
   }
 
-  async getTodaysAppointments(filters = {}) {
+  async getTodaysAppointments(filters = {}, role) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    console.log(today);
+
     try {
-      const { doctor_uuid, status, page = 1, limit = 20 } = filters;
+      const {
+        doctor_uuid,
+        patient_uuid,
+        search,
+        status,
+        appointment_type,
+        appointment_mode,
+        priority,
+        page = 1,
+        limit = 20,
+      } = filters;
 
       const where = { appointment_date: today };
 
       if (status) {
         where.status = status;
       }
-      if (doctor_uuid) {
-        where.staff_uuid = doctor_uuid;
+
+      if (appointment_type) {
+        where.appointment_type = appointment_type;
+      }
+
+      if (appointment_mode) {
+        where.is_online_consultation =
+          appointment_mode === 'online' ? true : false;
+      }
+
+      if (appointment_type) {
+        where.priority = priority;
+      }
+
+      if (search) {
+        where[Op.or] = [
+          { reason: { [Op.like]: `%${search}%` } },
+          { '$doctor.person.first_name$': { [Op.like]: `%${search}%` } },
+          { '$doctor.person.last_name$': { [Op.like]: `%${search}%` } },
+        ];
+      }
+
+      let patient, doctor;
+
+      if (role === 'patient') {
+        patient = await Patient.findOne({ where: { patient_uuid } });
+      }
+
+      if (role === 'doctor') {
+        doctor = await Staff.findOne({
+          where: {
+            staff_uuid: doctor_uuid,
+            role: 'doctor',
+          },
+        });
+      }
+
+      if (patient) {
+        where.patient_id = patient.patient_id;
+      }
+
+      if (doctor) {
+        where.doctor_id = doctor.staff_id;
       }
 
       const offset = (page - 1) * limit;
@@ -705,20 +755,20 @@ class AppointmentService {
                     'gender',
                   ],
                 },
+              ],
+            },
+            {
+              model: Staff,
+              as: 'doctor',
+              include: [
                 {
-                  model: Staff,
-                  as: 'doctor',
-                  include: [
-                    {
-                      model: Person,
-                      as: 'person',
-                      attributes: ['first_name', 'middle_name', 'last_name'],
-                    },
-                    {
-                      model: Department,
-                      as: 'department',
-                    },
-                  ],
+                  model: Person,
+                  as: 'person',
+                  attributes: ['first_name', 'middle_name', 'last_name'],
+                },
+                {
+                  model: Department,
+                  as: 'department',
                 },
               ],
             },
@@ -728,6 +778,7 @@ class AppointmentService {
       return {
         date: today,
         appointments,
+        totalAppointmentsToday: total,
         pagination: {
           limit: parseInt(limit),
           page: parseInt(page),
@@ -740,59 +791,6 @@ class AppointmentService {
       throw error instanceof AppError
         ? error
         : AppError(`Failed to fetch today's appointments.`, 500);
-    }
-  }
-
-  async checkInAppointment(appointmentId, checkedInBy) {
-    const transaction = await sequelize.transaction();
-
-    try {
-      const appointment = await Appointment.findByPk(appointmentId, {
-        transaction,
-      });
-
-      if (!appointment) {
-        throw new AppError('Appointment not found', 404);
-      }
-
-      if (!appointment.canCheckIn()) {
-        throw new AppError(
-          'Only scheduled appointments can be checked in',
-          400
-        );
-      }
-
-      const oldStatus = appointment.status;
-
-      await appointment.update(
-        {
-          status: 'checked-in',
-          checked_in_at: new Date(),
-        },
-        { transaction }
-      );
-
-      await AppointmentHistory.create(
-        {
-          appointment_id: appointment.appointment_id,
-          action_type: 'checked-in',
-          previous_status: oldStatus,
-          new_status: 'checked-in',
-          changed_by: checkedInBy,
-          change_reason: 'Patient checked in for appointment',
-        },
-        { transaction }
-      );
-
-      await transaction.commit();
-
-      return await this.getAppointmentById(appointmentId);
-    } catch (error) {
-      await transaction.rollback();
-      console.error('Check-in appointment error:', error);
-      throw error instanceof AppError
-        ? error
-        : new AppError('Failed to check in appointment', 500);
     }
   }
 
@@ -811,7 +809,7 @@ class AppointmentService {
       if (!appointment.canExtend()) {
         throw new AppError(
           'Only in-progress or checked-in appointments can be extended',
-          400
+          400,
         );
       }
 
@@ -821,7 +819,7 @@ class AppointmentService {
         appointment.doctor_id,
         appointment.department_id,
         appointment.appointment_type,
-        newDuration
+        newDuration,
       );
 
       const [hours, minutes] = appointment.start_time.split(':');
@@ -839,7 +837,7 @@ class AppointmentService {
           extension_fee: pricing.extensionFee,
           total_amount: pricing.totalAmount,
         },
-        { transaction }
+        { transaction },
       );
 
       // log update history
@@ -850,7 +848,7 @@ class AppointmentService {
           changed_by: updatedBy,
           change_reason: `Extended by ${additionalMinutes} minutes`,
         },
-        { transaction }
+        { transaction },
       );
 
       await transaction.commit();
@@ -862,60 +860,6 @@ class AppointmentService {
       throw error instanceof AppError
         ? error
         : new AppError('Failed to extend appointment', 500);
-    }
-  }
-
-  async cancelAppointment(appointmentId, reason, cancelledBy) {
-    const transaction = await sequelize.transaction();
-
-    try {
-      const appointment = await Appointment.findByPk(appointmentId, {
-        transaction,
-      });
-
-      if (!appointment) {
-        throw new AppError('Appointment not found.', 404);
-      }
-
-      if (!appointment.canCancel()) {
-        throw new AppError('This appointment cannot be cancelled.', 400);
-      }
-
-      const oldStatus = appointment.status;
-
-      await appointment.update(
-        {
-          status: 'cancelled',
-          payment_status: 'cancelled',
-          cancelled_at: new Date(),
-          reason: appointment.notes
-            ? `${appointment.notes}\n\nCancellation reason: ${reason}`
-            : `Cancellation reason: ${reason}`,
-        },
-        { transaction }
-      );
-
-      await AppointmentHistory.create(
-        {
-          appointment_id: appointment.appointment_id,
-          action_type: 'cancelled',
-          previous_status: oldStatus,
-          new_status: 'cancelled',
-          changed_by: cancelledBy,
-          change_reason: reason,
-        },
-        { transaction }
-      );
-
-      await transaction.commit();
-
-      return await this.getAppointmentById(appointmentId);
-    } catch (error) {
-      await transaction.rollback();
-      console.log('Cancel Appointment error: ', error);
-      throw error instanceof AppError
-        ? error
-        : new AppError('Failed to cancel appointment', 500);
     }
   }
 
@@ -939,7 +883,7 @@ class AppointmentService {
         appointment.doctor_id,
         newDate,
         newTime,
-        appointmentId
+        appointmentId,
       );
 
       if (hasConflict) {
@@ -953,7 +897,7 @@ class AppointmentService {
       const startDate = new Date();
       startDate.getHours(parseInt(hours), parseInt(minutes), 0);
       const endDate = new Date(
-        startDate.getTime() + appointment.duration_minutes * 60000
+        startDate.getTime() + appointment.duration_minutes * 60000,
       );
 
       const newEndTime = format(endDate, 'HH:mm:ss');
@@ -966,7 +910,7 @@ class AppointmentService {
           end_time: newEndTime,
           status: 'rescheduled',
         },
-        { transaction }
+        { transaction },
       );
 
       await AppointmentHistory.create(
@@ -980,7 +924,7 @@ class AppointmentService {
           changed_by: changedBy,
           change_reason: 'Appointment Rescheduled',
         },
-        { transaction }
+        { transaction },
       );
       await transaction.commit();
 
@@ -1028,7 +972,34 @@ class AppointmentService {
     const transaction = await sequelize.transaction();
 
     try {
-      const appointment = await Appointment.findByPk(appointmentId, {
+      const appointment = await Appointment.findOne({
+        where: { appointment_id: appointmentId },
+        include: [
+          {
+            model: Staff,
+            as: 'doctor',
+            attributes: ['staff_uuid', 'staff_id'],
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                attributes: ['first_name', 'last_name'],
+                include: [{ model: User, as: 'user' }],
+              },
+            ],
+          },
+          {
+            model: Patient,
+            as: 'patient',
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                attributes: ['first_name', 'last_name'],
+              },
+            ],
+          },
+        ],
         transaction,
       });
 
@@ -1036,8 +1007,12 @@ class AppointmentService {
         throw new AppError('Appointment not found', 404);
       }
 
+      const doctor = appointment.doctor;
+      const patient = appointment.patient;
+
       const validStatuses = [
         'scheduled',
+        'arrived',
         'confirmed',
         'checked_in',
         'in_progress',
@@ -1058,19 +1033,50 @@ class AppointmentService {
       await AppointmentHistory.create(
         {
           appointment_id: appointmentId,
-          action_type: 'status_change',
+          action_type: 'checked_in',
           previous_status: oldStatus,
           new_status: newStatus,
           changed_by: updatedBy,
           change_reason: `Status changed from ${oldStatus} to ${newStatus}`,
         },
-        { transaction }
+        { transaction },
       );
 
+      // creating notification for doctor
+      if (newStatus === 'cancelled') {
+        const appointmentNotification = await Notification.create(
+          {
+            user_uuid: doctor?.person?.user?.user_uuid, // receiver
+            type: 'cancelled_appointment',
+            title: 'Cancelled Appointment.',
+            message: `Cancelled appointment for patient: ${patient.person.first_name} ${patient.person.last_name} at ${appointment.appointment_date}, ${appointment.appointment_date}`,
+            data: JSON.stringify(appointment),
+          },
+          { transaction },
+        );
+
+        if (!appointmentNotification) {
+          throw new AppError('Notification not found.', 404);
+        }
+      }
+
       await transaction.commit();
+
+      const roomName = `doctor-${doctor.staff_uuid}-${doctor.person.last_name}`;
+
+      await emitToRoom(roomName, `patient-status_changed`, {
+        appointmentId: appointment.appointment_id,
+        patientName: `${patient.person.first_name} ${patient.person.last_name}`,
+        doctorId: appointment.doctor_id,
+        arrivalTime: new Date(),
+        status: newStatus,
+      });
+
       return await this.getAppointmentById(appointmentId);
     } catch (error) {
-      await transaction.rollback();
+      if (!transaction.finished) {
+        await transaction.rollback();
+      }
       console.log('Update appointment status error: ', error);
       throw error instanceof AppError
         ? error
@@ -1109,7 +1115,7 @@ class AppointmentService {
           processed_by,
           notes,
         },
-        { transaction }
+        { transaction },
       );
 
       const totalPaid = await AppointmentPayment.getTotalPaid(appointmentId);

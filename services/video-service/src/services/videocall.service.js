@@ -571,6 +571,12 @@ class VideoCallService {
         );
       } else {
         await consultation.update({ status: 'waiting' }, { transaction });
+        await Appointment.update(
+          {
+            status: 'arrived',
+          },
+          { where: { appointment_id: appointment.appointment_id }, transaction }
+        );
       }
 
       await transaction.commit();

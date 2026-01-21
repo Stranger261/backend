@@ -14,7 +14,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
 
   const appointment = await appointmentService.bookAppointment(
     appointmentData,
-    req
+    req,
   );
 
   messageSender(201, 'Appointment booked successfully', appointment, res);
@@ -24,9 +24,8 @@ export const bookAppointment = asyncHandler(async (req, res) => {
 export const getAppointmentById = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params;
 
-  const appointment = await appointmentService.getAppointmentById(
-    appointmentId
-  );
+  const appointment =
+    await appointmentService.getAppointmentById(appointmentId);
 
   messageSender(200, 'Appointment retrieved successfully', appointment, res);
 });
@@ -38,14 +37,14 @@ export const getPatientAppointments = asyncHandler(async (req, res) => {
 
   const result = await appointmentService.getPatientAppointments(
     patientUuid,
-    filters
+    filters,
   );
 
   messageSender(
     200,
     'Patient appointments retrieved successfully',
     result,
-    res
+    res,
   );
 });
 
@@ -55,55 +54,31 @@ export const getDoctorAppointments = asyncHandler(async (req, res) => {
 
   const result = await appointmentService.getDoctorAppointments(
     doctorUuid,
-    filters
+    filters,
   );
   messageSender(
     200,
     'Doctor appointments retrieved successfully.',
     result,
-    res
+    res,
   );
 });
 // Get today's appointments
 export const getTodaysAppointments = asyncHandler(async (req, res) => {
-  const { filters } = req.query;
+  const filters = req.query;
+  const role = req.user.role;
 
-  const appointments = await appointmentService.getTodaysAppointments(filters);
+  const appointments = await appointmentService.getTodaysAppointments(
+    filters,
+    role,
+  );
 
   messageSender(
     200,
     "Today's appointments retrieved successfully",
     appointments,
-    res
+    res,
   );
-});
-
-// Check-in appointment
-export const checkInAppointment = asyncHandler(async (req, res) => {
-  const { appointmentId } = req.params;
-  const checkedInBy = req.user?.staff_uuid || req.user?.user_uuid;
-
-  const appointment = await appointmentService.checkInAppointment(
-    appointmentId,
-    checkedInBy
-  );
-
-  messageSender(200, 'Patient checked in successfully', appointment, res);
-});
-
-// Cancel appointment
-export const cancelAppointment = asyncHandler(async (req, res) => {
-  const { appointmentId } = req.params;
-  const { reason } = req.body;
-  const cancelledBy = req.user?.staff_uuid || req.user?.user_uuid;
-
-  const appointment = await appointmentService.cancelAppointment(
-    appointmentId,
-    reason,
-    cancelledBy
-  );
-
-  messageSender(200, 'Appointment cancelled successfully', appointment, res);
 });
 
 // Reschedule appointment
@@ -116,10 +91,24 @@ export const rescheduleAppointment = asyncHandler(async (req, res) => {
     appointmentId,
     new_date,
     new_time,
-    changedBy
+    changedBy,
   );
 
   messageSender(200, 'Appointment rescheduled successfully', appointment, res);
+});
+
+export const updateAppointmentStatus = asyncHandler(async (req, res) => {
+  const { newStatus } = req.body;
+  const { appointmentId } = req.params;
+  const updatedBy = req.user.user_id;
+
+  const response = await appointmentService.updateAppointmentStatus(
+    appointmentId,
+    newStatus,
+    updatedBy,
+  );
+
+  messageSender(200, 'Updated successfully.', response, res);
 });
 
 // Extend appointment duration
@@ -131,7 +120,7 @@ export const extendAppointment = asyncHandler(async (req, res) => {
   const appointment = await appointmentService.extendAppointment(
     appointmentId,
     additional_minutes,
-    updatedBy
+    updatedBy,
   );
 
   messageSender(200, 'Appointment extended successfully', appointment, res);
@@ -146,7 +135,7 @@ export const completeAppointment = asyncHandler(async (req, res) => {
   const appointment = await appointmentService.completeAppointment(
     appointmentId,
     notes,
-    completedBy
+    completedBy,
   );
 
   messageSender(200, 'Appointment completed successfully', appointment, res);
@@ -162,7 +151,7 @@ export const processPayment = asyncHandler(async (req, res) => {
 
   const payment = await appointmentService.processPayment(
     appointmentId,
-    paymentData
+    paymentData,
   );
 
   messageSender(200, 'Payment processed successfully', payment, res);
@@ -178,7 +167,7 @@ export const getAppointmentHistory = asyncHandler(async (req, res) => {
     200,
     'Appointment history retrieved successfully',
     history,
-    res
+    res,
   );
 });
 
@@ -191,7 +180,7 @@ export const calculateFee = asyncHandler(async (req, res) => {
     doctor_id,
     department_id,
     appointment_type || 'consultation',
-    duration_minutes ? parseInt(duration_minutes) : 30
+    duration_minutes ? parseInt(duration_minutes) : 30,
   );
 
   messageSender(200, 'Fee calculated successfully', pricing, res);

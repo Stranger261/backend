@@ -4,22 +4,22 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.PASSWORD_USER,
-  },
-
-  // host: 'smtp.gmail.com',
-  // port: 587,        // Port for TLS/STARTTLS
-  // secure: false,    // false for port 587 (STARTTLS)
+  // service: 'gmail',
   // auth: {
   //   user: process.env.EMAIL_USER,
-  //   pass: process.env.PASSWORD_USER,  // App password
+  //   pass: process.env.PASSWORD_USER,
   // },
-  // tls: {
-  //   rejectUnauthorized: false,  // Allow self-signed certificates (sometimes needed for server communication)
-  // },
+
+  host: 'smtp.gmail.com',
+  port: 587, // Port for TLS/STARTTLS
+  secure: false, // false for port 587 (STARTTLS)
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.PASSWORD_USER, // App password
+  },
+  tls: {
+    rejectUnauthorized: false, // Allow self-signed certificates (sometimes needed for server communication)
+  },
 });
 
 export const sendOTPEmail = async (receiverEmail, otp) => {

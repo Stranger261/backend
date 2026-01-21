@@ -15,9 +15,6 @@ import {
   DoctorSchedule,
   DoctorLeave,
   Appointment,
-  sequelize,
-  User,
-  MedicalRecord,
 } from '../../../shared/models/index.js';
 import AppError from '../../../shared/utils/AppError.util.js';
 
@@ -98,7 +95,6 @@ class DoctorService {
     }
   }
 
-  // need to know since i have to know who is the user then go to person then map person to get the patient
   async getDoctorsByDepartment(departmentId, patientId = null) {
     try {
       let patient;
@@ -215,7 +211,7 @@ class DoctorService {
         where: {
           doctor_id: doctorId,
           appointment_date: { [Op.between]: [start, end] },
-          status: { [Op.notIn]: ['cancelled', 'no_show', 'completed'] },
+          status: { [Op.notIn]: ['cancelled', 'no_show'] },
         },
         attributes: ['appointment_date', 'start_time', 'end_time'],
       });

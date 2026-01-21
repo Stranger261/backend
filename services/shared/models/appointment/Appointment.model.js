@@ -144,6 +144,7 @@ Appointment.init(
     status: {
       type: DataTypes.ENUM(
         'scheduled',
+        'arrived',
         'confirmed',
         'checked_in',
         'in_progress',

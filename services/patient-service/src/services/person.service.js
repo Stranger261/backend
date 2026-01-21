@@ -310,7 +310,6 @@ export default new (class personService {
       );
 
       await transaction.commit();
-      console.log('✅ ✅ ✅ REGISTRATION SUCCESSFUL ✅ ✅ ✅');
 
       return {
         success: true,
@@ -373,11 +372,6 @@ export default new (class personService {
   async verifyPersonFace(data) {
     const { userUUID, livePhotoBase64, ipAddress, userAgent } = data;
     try {
-      console.log('');
-      console.log('═══════════════════════════════════════');
-      console.log('🎭 LIVE FACE VERIFICATION');
-      console.log('═══════════════════════════════════════');
-
       const user = await User.findOne({
         where: { user_uuid: userUUID, is_deleted: false },
         include: [
@@ -403,17 +397,9 @@ export default new (class personService {
         );
       }
 
-      console.log(
-        `👤 Verifying: ${person.first_name} ${person.last_name} (ID: ${person.person_id})`
-      );
-      console.log(
-        `📋 Enrolled face token: ${person.face_encoding.substring(0, 20)}...`
-      );
-
       let base64Data = livePhotoBase64;
 
       if (base64Data.includes(',')) {
-        console.log('🔧 Stripping data URI prefix...');
         base64Data = base64Data.split(',')[1];
       }
 
@@ -422,19 +408,9 @@ export default new (class personService {
       }
 
       const livePhotoBuffer = Buffer.from(base64Data, 'base64');
-      console.log('🔍 Detecting face in live photo...');
       const liveFaceData = await this.faceProcessingService.detectAndCropFace(
         livePhotoBuffer
       );
-
-      // ✅ DEBUG: Check what we got from detectAndCropFace
-      console.log('🔍 Live face data:', {
-        hasFaceToken: !!liveFaceData.faceToken,
-        faceTokenType: typeof liveFaceData.faceToken,
-        faceTokenPreview: liveFaceData.faceToken
-          ? liveFaceData.faceToken.substring(0, 20) + '...'
-          : 'undefined',
-      });
 
       if (
         !liveFaceData.faceToken ||
@@ -443,14 +419,6 @@ export default new (class personService {
         throw new AppError('Failed to extract face token from live photo', 400);
       }
 
-      console.log(
-        `📋 Live face token: ${liveFaceData.faceToken.substring(0, 20)}...`
-      );
-      console.log(
-        `📊 Live face quality: ${liveFaceData.faceQuality.toFixed(1)}/100`
-      );
-
-      console.log('⚖️ Comparing enrolled face vs live face...');
       const comparisonRes = await this.faceProcessingService.compareFaces(
         person.face_encoding,
         liveFaceData.faceToken
@@ -459,14 +427,6 @@ export default new (class personService {
       const VERIFICATION_THRESHOLD =
         parseInt(process.env.FACEPP_VERIFICATION_THRESHOLD) || 80;
       const verified = comparisonRes.confidence >= VERIFICATION_THRESHOLD;
-
-      console.log('');
-      console.log('📊 VERIFICATION RESULT:');
-      console.log(`   Confidence: ${comparisonRes.confidence.toFixed(2)}%`);
-      console.log(`   Threshold: ${VERIFICATION_THRESHOLD}%`);
-      console.log(`   Status: ${verified ? '✅ VERIFIED' : '❌ FAILED'}`);
-      console.log('═══════════════════════════════════════');
-      console.log('');
 
       return {
         verified,
@@ -483,10 +443,7 @@ export default new (class personService {
         },
       };
     } catch (error) {
-      console.error('❌ Patient Service: Verification failed:', error.message);
-      console.log('═══════════════════════════════════════');
-      console.log('');
-
+      console.error('Patient Service: Verification failed:', error.message);
       throw error instanceof AppError
         ? error
         : new AppError('Face verification failed', 500);

@@ -1,6 +1,6 @@
 import sequelize from '../config/db.config.js';
 
-// Import all models first
+// Import all models
 import User from './auth/User.model.js';
 import UserSession from './auth/UserSession.model.js';
 import LoginAttempt from './auth/LoginAttempt.model.js';
@@ -40,6 +40,8 @@ import TelehealthNote from './appointment/TelehealthNote.model.js';
 import AppointmentPricing from './appointment/AppointmentPricing.model.js';
 import AppointmentHistory from './appointment/AppointmentHistory.model.js';
 import AppointmentPayment from './appointment/AppointmentPayment.model.js';
+import AppointmentVitals from './appointment/AppointmentVitals.model.js';
+import AppointmentDiagnosis from './appointment/AppointmentDiagnosis.model.js';
 
 import ERVisit from './erts/ERVisit.model.js';
 import TriageAssessment from './erts/TriageAssessment.model.js';
@@ -53,11 +55,25 @@ import Admission from './ibms/Admission.model.js';
 import BedAssignment from './ibms/BedAssignment.model.js';
 import IdSequence from './ibms/IdSequence.model.js';
 
+import Prescription from './prescription/Prescription.model.js';
+import PrescriptionItem from './prescription/PrescriptionItem.model.js';
+
+import LabOrder from './laboratory/LabOrder.model.js';
+import LabOrderTest from './laboratory/LabOrderTest.model.js';
+
+import ImagingOrder from './imaging/ImagingOrder.model.js';
+
+import BillingTransaction from './billing/BillingTransaction.model.js';
+
 import Notification from './notification/notification.model.js';
 import VideoConsultation from './videocall/VideoConsultation.model.js';
 import VideoWaitingRoom from './videocall/VideoWaitingRoom.model.js';
 import ConsultationMessage from './videocall/ConsultationMessage.model.js';
-// Export all models
+
+// ============================================================================
+// EXPORT ALL MODELS AND FUNCTIONS
+// ============================================================================
+
 export {
   // Auth Models
   User,
@@ -93,6 +109,8 @@ export {
 
   // Appointment Models
   Appointment,
+  AppointmentVitals,
+  AppointmentDiagnosis,
   AppointmentHistory,
   AppointmentPricing,
   AppointmentPayment,
@@ -101,6 +119,20 @@ export {
   DoctorLeave,
   TelehealthSession,
   TelehealthNote,
+
+  // Prescription
+  Prescription,
+  PrescriptionItem,
+
+  // Lab
+  LabOrder,
+  LabOrderTest,
+
+  // Imaging
+  ImagingOrder,
+
+  // Billing
+  BillingTransaction,
 
   // ERTS Models
   ERVisit,
@@ -190,13 +222,13 @@ export const setupAssociations = () => {
     as: 'users',
   });
 
-  // UserRole ↔ User (Many-to-One)
+  // UserRole associations
   UserRole.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
   User.hasMany(UserRole, { foreignKey: 'user_id', as: 'userRoles' });
-
-  // UserRole ↔ Role (Many-to-One) - THIS IS THE KEY ASSOCIATION YOU'RE MISSING
   UserRole.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
   Role.hasMany(UserRole, { foreignKey: 'role_id', as: 'userRoles' });
+  UserRole.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
+  Staff.hasMany(UserRole, { foreignKey: 'staff_id', as: 'userRoles' });
 
   // Role ↔ Permission (Many-to-Many through RolePermission)
   Role.belongsToMany(Permission, {
@@ -212,10 +244,6 @@ export const setupAssociations = () => {
     as: 'roles',
   });
 
-  // UserRole ↔ Staff (Optional)
-  UserRole.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
-  Staff.hasMany(UserRole, { foreignKey: 'staff_id', as: 'userRoles' });
-
   // ==========================================================================
   // PATIENT SERVICE ASSOCIATIONS
   // ==========================================================================
@@ -224,15 +252,13 @@ export const setupAssociations = () => {
   User.hasOne(Person, { foreignKey: 'user_id', as: 'person' });
   Person.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-  // Person ↔ PersonContact (One-to-Many)
+  // Person associations
   Person.hasMany(PersonContact, { foreignKey: 'person_id', as: 'contacts' });
   PersonContact.belongsTo(Person, { foreignKey: 'person_id', as: 'person' });
 
-  // Person ↔ PersonAddress (One-to-Many)
   Person.hasMany(PersonAddress, { foreignKey: 'person_id', as: 'addresses' });
   PersonAddress.belongsTo(Person, { foreignKey: 'person_id', as: 'person' });
 
-  // Person ↔ PersonIdentification (One-to-Many)
   Person.hasMany(PersonIdentification, {
     foreignKey: 'person_id',
     as: 'identifications',
@@ -241,6 +267,9 @@ export const setupAssociations = () => {
     foreignKey: 'person_id',
     as: 'person',
   });
+
+  Person.hasOne(Patient, { foreignKey: 'person_id', as: 'patient' });
+  Patient.belongsTo(Person, { foreignKey: 'person_id', as: 'person' });
 
   // PersonIdentification ↔ IdType (Many-to-One)
   PersonIdentification.belongsTo(IdType, {
@@ -252,29 +281,22 @@ export const setupAssociations = () => {
     as: 'personIdentifications',
   });
 
-  // Person ↔ Patient (One-to-One)
-  Person.hasOne(Patient, { foreignKey: 'person_id', as: 'patient' });
-  Patient.belongsTo(Person, { foreignKey: 'person_id', as: 'person' });
-
-  // Patient ↔ MedicalRecord (One-to-Many)
+  // Patient associations
   Patient.hasMany(MedicalRecord, {
     foreignKey: 'patient_id',
     as: 'medicalRecords',
   });
   MedicalRecord.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
-  // Patient ↔ Allergy (One-to-Many)
   Patient.hasMany(Allergy, { foreignKey: 'patient_id', as: 'allergies' });
   Allergy.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
-  // Patient ↔ PatientConsent (One-to-Many)
   Patient.hasMany(PatientConsent, { foreignKey: 'patient_id', as: 'consents' });
   PatientConsent.belongsTo(Patient, {
     foreignKey: 'patient_id',
     as: 'patient',
   });
 
-  // Patient ↔ DoctorPatientAssignment (One-to-Many)
   Patient.hasMany(DoctorPatientAssignment, {
     foreignKey: 'patient_id',
     as: 'doctorAssignments',
@@ -283,6 +305,9 @@ export const setupAssociations = () => {
     foreignKey: 'patient_id',
     as: 'patient',
   });
+
+  Patient.hasMany(PHIAccessLog, { foreignKey: 'patient_id', as: 'accessLogs' });
+  PHIAccessLog.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
   // Staff ↔ DoctorPatientAssignment (One-to-Many)
   Staff.hasMany(DoctorPatientAssignment, {
@@ -294,23 +319,15 @@ export const setupAssociations = () => {
     as: 'doctor',
   });
 
-  // Patient ↔ PHIAccessLog (One-to-Many)
-  Patient.hasMany(PHIAccessLog, { foreignKey: 'patient_id', as: 'accessLogs' });
-  PHIAccessLog.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
-
-  // User ↔ PHIAccessLog (One-to-Many)
+  // PHIAccessLog associations
   User.hasMany(PHIAccessLog, { foreignKey: 'user_id', as: 'phiAccessLogs' });
   PHIAccessLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-
-  // Staff ↔ PHIAccessLog (One-to-Many)
   Staff.hasMany(PHIAccessLog, { foreignKey: 'staff_id', as: 'phiAccessLogs' });
   PHIAccessLog.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
 
-  // User ↔ AuditLog (One-to-Many)
+  // AuditLog associations
   User.hasMany(AuditLog, { foreignKey: 'user_id', as: 'auditLogs' });
   AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-
-  // Staff ↔ AuditLog (One-to-Many)
   Staff.hasMany(AuditLog, { foreignKey: 'staff_id', as: 'auditLogs' });
   AuditLog.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
 
@@ -330,37 +347,66 @@ export const setupAssociations = () => {
   City.hasMany(Barangay, { foreignKey: 'city_code', as: 'barangays' });
   Barangay.belongsTo(City, { foreignKey: 'city_code', as: 'city' });
 
-  // PersonAddress ↔ Barangay (Many-to-One)
+  // PersonAddress ↔ Address Hierarchy
   PersonAddress.belongsTo(Barangay, {
     foreignKey: 'barangay_code',
     as: 'barangay',
   });
-  Barangay.hasMany(PersonAddress, {
-    foreignKey: 'barangay_code',
-    as: 'addresses',
-  });
-
-  // PersonAddress ↔ City (Many-to-One)
   PersonAddress.belongsTo(City, { foreignKey: 'city_code', as: 'city' });
-  City.hasMany(PersonAddress, { foreignKey: 'city_code', as: 'addresses' });
-
-  // PersonAddress ↔ Province (Many-to-One)
   PersonAddress.belongsTo(Province, {
     foreignKey: 'province_code',
     as: 'province',
   });
+  PersonAddress.belongsTo(Region, { foreignKey: 'region_code', as: 'region' });
+
+  // Reverse associations
+  Barangay.hasMany(PersonAddress, {
+    foreignKey: 'barangay_code',
+    as: 'addresses',
+  });
+  City.hasMany(PersonAddress, { foreignKey: 'city_code', as: 'addresses' });
   Province.hasMany(PersonAddress, {
     foreignKey: 'province_code',
     as: 'addresses',
   });
-
-  // PersonAddress ↔ Region (Many-to-One)
-  PersonAddress.belongsTo(Region, { foreignKey: 'region_code', as: 'region' });
   Region.hasMany(PersonAddress, { foreignKey: 'region_code', as: 'addresses' });
+
+  // ==========================================================================
+  // IBMS SERVICE ASSOCIATIONS (Staff & Department First)
+  // ==========================================================================
+
+  // Staff ↔ Person
+  Staff.belongsTo(Person, { foreignKey: 'person_id', as: 'person' });
+  Person.hasOne(Staff, { foreignKey: 'person_id', as: 'staff' });
+
+  // Department ↔ Staff (One-to-Many)
+  Department.hasMany(Staff, { foreignKey: 'department_id', as: 'staff' });
+  Staff.belongsTo(Department, {
+    foreignKey: 'department_id',
+    as: 'department',
+  });
+
+  // Department ↔ Room (One-to-Many)
+  Department.hasMany(Room, { foreignKey: 'department_id', as: 'rooms' });
+  Room.belongsTo(Department, { foreignKey: 'department_id', as: 'department' });
+
+  // Room ↔ Bed (One-to-Many)
+  Room.hasMany(Bed, { foreignKey: 'room_id', as: 'beds' });
+  Bed.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
 
   // ==========================================================================
   // APPOINTMENT SERVICE ASSOCIATIONS
   // ==========================================================================
+
+  // Patient ↔ AppointmentVitals (One-to-Many through Appointment)
+  Patient.hasMany(AppointmentVitals, {
+    foreignKey: 'patient_id', // You need to add this column to AppointmentVitals table
+    as: 'vitalsRecords',
+  });
+  AppointmentVitals.belongsTo(Patient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
 
   // Patient ↔ Appointment (One-to-Many)
   Patient.hasMany(Appointment, {
@@ -371,15 +417,13 @@ export const setupAssociations = () => {
 
   // Staff ↔ Appointment (One-to-Many as Doctor)
   Staff.hasMany(Appointment, {
-    foreignKey: 'doctor_id', // This is the column in Appointment table
-    sourceKey: 'staff_id', // This is the column in Staff table
+    foreignKey: 'doctor_id',
+    sourceKey: 'staff_id',
     as: 'appointments',
   });
-
-  // Appointment belongs to Staff (doctor)
   Appointment.belongsTo(Staff, {
-    foreignKey: 'doctor_id', // This is the column in Appointment table
-    targetKey: 'staff_id', // This is the column in Staff table
+    foreignKey: 'doctor_id',
+    targetKey: 'staff_id',
     as: 'doctor',
   });
 
@@ -403,7 +447,7 @@ export const setupAssociations = () => {
     as: 'appointment',
   });
 
-  // Staff ↔ AppointmentCheckIn (One-to-Many)
+  // Staff ↔ AppointmentCheckIn
   Staff.hasMany(AppointmentCheckIn, {
     foreignKey: 'checked_in_by',
     as: 'checkIns',
@@ -413,26 +457,59 @@ export const setupAssociations = () => {
     as: 'checkedInBy',
   });
 
-  // Staff ↔ DoctorSchedule (One-to-Many)
+  // Appointment ↔ AppointmentVitals (One-to-One)
+  Appointment.hasOne(AppointmentVitals, {
+    foreignKey: 'appointment_id',
+    as: 'vitals',
+  });
+  AppointmentVitals.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+
+  // Appointment ↔ AppointmentDiagnosis (One-to-One)
+  Appointment.hasOne(AppointmentDiagnosis, {
+    foreignKey: 'appointment_id',
+    as: 'diagnosis',
+  });
+  AppointmentDiagnosis.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+
+  // Staff ↔ Vitals & Diagnosis
+  Staff.hasMany(AppointmentVitals, {
+    foreignKey: 'recorded_by',
+    as: 'recordedVitals',
+  });
+  AppointmentVitals.belongsTo(Staff, {
+    foreignKey: 'recorded_by',
+    as: 'recordedBy',
+  });
+
+  Staff.hasMany(AppointmentDiagnosis, {
+    foreignKey: 'created_by',
+    as: 'createdDiagnoses',
+  });
+  AppointmentDiagnosis.belongsTo(Staff, {
+    foreignKey: 'created_by',
+    as: 'createdBy',
+  });
+
+  // Staff ↔ DoctorSchedule & DoctorLeave
   Staff.hasMany(DoctorSchedule, { foreignKey: 'staff_id', as: 'schedules' });
   DoctorSchedule.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
 
-  // Staff ↔ DoctorLeave (One-to-Many)
   Staff.hasMany(DoctorLeave, { foreignKey: 'staff_id', as: 'leaves' });
   DoctorLeave.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
 
-  // DoctorLeave -> User (approved_by)
-  DoctorLeave.belongsTo(User, {
-    foreignKey: 'approved_by',
-    as: 'approvedBy',
-  });
-
-  // Staff ↔ DoctorLeave (Approver)
+  // DoctorLeave approvals
+  DoctorLeave.belongsTo(User, { foreignKey: 'approved_by', as: 'approvedBy' });
+  DoctorLeave.belongsTo(Staff, { foreignKey: 'approved_by', as: 'approver' });
   Staff.hasMany(DoctorLeave, {
     foreignKey: 'approved_by',
     as: 'approvedLeaves',
   });
-  DoctorLeave.belongsTo(Staff, { foreignKey: 'approved_by', as: 'approver' });
 
   // Appointment ↔ TelehealthSession (One-to-One)
   Appointment.hasOne(TelehealthSession, {
@@ -454,6 +531,325 @@ export const setupAssociations = () => {
     as: 'session',
   });
 
+  // Appointment ↔ AppointmentHistory
+  Appointment.hasMany(AppointmentHistory, {
+    foreignKey: 'appointment_id',
+    as: 'history',
+  });
+  AppointmentHistory.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+  AppointmentHistory.belongsTo(User, {
+    foreignKey: 'changed_by',
+    as: 'changedBy',
+  });
+
+  // Appointment ↔ AppointmentPayment
+  Appointment.hasMany(AppointmentPayment, {
+    foreignKey: 'appointment_id',
+    as: 'payments',
+  });
+  AppointmentPayment.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+  AppointmentPayment.belongsTo(User, {
+    foreignKey: 'processed_by',
+    as: 'processedBy',
+  });
+
+  // AppointmentPricing associations
+  AppointmentPricing.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
+  Staff.hasMany(AppointmentPricing, { foreignKey: 'staff_id', as: 'pricing' });
+  AppointmentPricing.belongsTo(Department, {
+    foreignKey: 'department_id',
+    as: 'department',
+  });
+  Department.hasMany(AppointmentPricing, {
+    foreignKey: 'department_id',
+    as: 'pricing',
+  });
+
+  // ==========================================================================
+  // PRESCRIPTION ASSOCIATIONS
+  // ==========================================================================
+
+  // Prescription ↔ PrescriptionItem (One-to-Many)
+  Prescription.hasMany(PrescriptionItem, {
+    foreignKey: 'prescription_id',
+    as: 'items',
+  });
+  PrescriptionItem.belongsTo(Prescription, {
+    foreignKey: 'prescription_id',
+    as: 'prescription',
+  });
+
+  // Prescription ↔ Appointment/Admission/Patient
+  Prescription.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+  Prescription.belongsTo(Admission, {
+    foreignKey: 'admission_id',
+    as: 'admission',
+  });
+  Prescription.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
+
+  // Reverse associations
+  Appointment.hasMany(Prescription, {
+    foreignKey: 'appointment_id',
+    as: 'prescriptions',
+  });
+  Admission.hasMany(Prescription, {
+    foreignKey: 'admission_id',
+    as: 'prescriptions',
+  });
+  Patient.hasMany(Prescription, {
+    foreignKey: 'patient_id',
+    as: 'prescriptions',
+  });
+
+  // Staff ↔ Prescription (Doctor prescribes)
+  Staff.hasMany(Prescription, {
+    foreignKey: 'prescribed_by',
+    as: 'prescribedPrescriptions',
+  });
+  Prescription.belongsTo(Staff, {
+    foreignKey: 'prescribed_by',
+    as: 'prescribedBy',
+  });
+
+  // Staff ↔ PrescriptionItem (Pharmacist dispenses)
+  Staff.hasMany(PrescriptionItem, {
+    foreignKey: 'dispensed_by',
+    as: 'dispensedItems',
+  });
+  PrescriptionItem.belongsTo(Staff, {
+    foreignKey: 'dispensed_by',
+    as: 'dispensedBy',
+  });
+
+  // ==========================================================================
+  // LAB ORDER ASSOCIATIONS
+  // ==========================================================================
+
+  // LabOrder ↔ LabOrderTest (One-to-Many)
+  LabOrder.hasMany(LabOrderTest, { foreignKey: 'order_id', as: 'tests' });
+  LabOrderTest.belongsTo(LabOrder, { foreignKey: 'order_id', as: 'order' });
+
+  // LabOrder ↔ Appointment/Admission/Patient
+  LabOrder.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+  LabOrder.belongsTo(Admission, {
+    foreignKey: 'admission_id',
+    as: 'admission',
+  });
+  LabOrder.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
+
+  // Reverse associations
+  Appointment.hasMany(LabOrder, {
+    foreignKey: 'appointment_id',
+    as: 'labOrders',
+  });
+  Admission.hasMany(LabOrder, { foreignKey: 'admission_id', as: 'labOrders' });
+  Patient.hasMany(LabOrder, { foreignKey: 'patient_id', as: 'labOrders' });
+
+  // Staff ↔ LabOrder (Doctor orders)
+  Staff.hasMany(LabOrder, { foreignKey: 'ordered_by', as: 'orderedLabTests' });
+  LabOrder.belongsTo(Staff, { foreignKey: 'ordered_by', as: 'orderedBy' });
+
+  // Staff ↔ LabOrderTest
+  Staff.hasMany(LabOrderTest, {
+    foreignKey: 'performed_by',
+    as: 'performedTests',
+  });
+  LabOrderTest.belongsTo(Staff, {
+    foreignKey: 'performed_by',
+    as: 'performedBy',
+  });
+  Staff.hasMany(LabOrderTest, {
+    foreignKey: 'verified_by',
+    as: 'verifiedTests',
+  });
+  LabOrderTest.belongsTo(Staff, {
+    foreignKey: 'verified_by',
+    as: 'verifiedBy',
+  });
+
+  // ==========================================================================
+  // IMAGING ORDER ASSOCIATIONS
+  // ==========================================================================
+
+  // ImagingOrder ↔ Appointment/Admission/Patient
+  ImagingOrder.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+  ImagingOrder.belongsTo(Admission, {
+    foreignKey: 'admission_id',
+    as: 'admission',
+  });
+  ImagingOrder.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
+
+  // Reverse associations
+  Appointment.hasMany(ImagingOrder, {
+    foreignKey: 'appointment_id',
+    as: 'imagingOrders',
+  });
+  Admission.hasMany(ImagingOrder, {
+    foreignKey: 'admission_id',
+    as: 'imagingOrders',
+  });
+  Patient.hasMany(ImagingOrder, {
+    foreignKey: 'patient_id',
+    as: 'imagingOrders',
+  });
+
+  // Staff ↔ ImagingOrder
+  Staff.hasMany(ImagingOrder, {
+    foreignKey: 'ordered_by',
+    as: 'orderedImagingTests',
+  });
+  ImagingOrder.belongsTo(Staff, { foreignKey: 'ordered_by', as: 'orderedBy' });
+  Staff.hasMany(ImagingOrder, {
+    foreignKey: 'performed_by',
+    as: 'performedImagingTests',
+  });
+  ImagingOrder.belongsTo(Staff, {
+    foreignKey: 'performed_by',
+    as: 'performedBy',
+  });
+  Staff.hasMany(ImagingOrder, {
+    foreignKey: 'reported_by',
+    as: 'reportedImagingTests',
+  });
+  ImagingOrder.belongsTo(Staff, {
+    foreignKey: 'reported_by',
+    as: 'reportedBy',
+  });
+
+  // ==========================================================================
+  // ADMISSION ASSOCIATIONS
+  // ==========================================================================
+
+  // Patient ↔ Admission (One-to-Many)
+  Patient.hasMany(Admission, { foreignKey: 'patient_id', as: 'admissions' });
+  Admission.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
+
+  // Staff ↔ Admission (Attending Doctor)
+  Staff.hasMany(Admission, {
+    foreignKey: 'attending_doctor_id',
+    as: 'admissions',
+  });
+  Admission.belongsTo(Staff, {
+    foreignKey: 'attending_doctor_id',
+    as: 'attendingDoctor',
+  });
+
+  // Appointment ↔ Admission (One-to-One, appointment can lead to admission)
+  Appointment.hasOne(Admission, {
+    foreignKey: 'appointment_id',
+    as: 'resultingAdmission',
+  });
+  Admission.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'originatingAppointment',
+  });
+
+  // Bed ↔ BedAssignment (One-to-Many)
+  Bed.hasMany(BedAssignment, { foreignKey: 'bed_id', as: 'assignments' });
+  BedAssignment.belongsTo(Bed, { foreignKey: 'bed_id', as: 'bed' });
+
+  // Admission ↔ BedAssignment (One-to-Many)
+  Admission.hasMany(BedAssignment, {
+    foreignKey: 'admission_id',
+    as: 'bedAssignments',
+  });
+  BedAssignment.belongsTo(Admission, {
+    foreignKey: 'admission_id',
+    as: 'admission',
+  });
+
+  // Staff ↔ BedAssignment (Assigned By)
+  Staff.hasMany(BedAssignment, {
+    foreignKey: 'assigned_by',
+    as: 'bedAssignments',
+  });
+  BedAssignment.belongsTo(Staff, {
+    foreignKey: 'assigned_by',
+    as: 'assignedBy',
+  });
+
+  // ==========================================================================
+  // MEDICAL RECORD ASSOCIATIONS WITH OTHER SERVICES
+  // ==========================================================================
+
+  // MedicalRecord ↔ Staff (Doctor)
+  Staff.hasMany(MedicalRecord, {
+    foreignKey: 'doctor_id',
+    as: 'medicalRecords',
+  });
+  MedicalRecord.belongsTo(Staff, { foreignKey: 'doctor_id', as: 'doctor' });
+
+  // MedicalRecord ↔ Appointment/ERVisit/Admission
+  MedicalRecord.belongsTo(Appointment, {
+    foreignKey: 'visit_id',
+    as: 'appointment',
+  });
+  MedicalRecord.belongsTo(ERVisit, { foreignKey: 'visit_id', as: 'erVisit' });
+  MedicalRecord.belongsTo(Admission, {
+    foreignKey: 'visit_id',
+    as: 'admission',
+  });
+
+  // Reverse associations
+  Appointment.hasMany(MedicalRecord, {
+    foreignKey: 'visit_id',
+    as: 'medicalRecords',
+  });
+  ERVisit.hasMany(MedicalRecord, {
+    foreignKey: 'visit_id',
+    as: 'medicalRecords',
+  });
+  Admission.hasMany(MedicalRecord, {
+    foreignKey: 'visit_id',
+    as: 'medicalRecords',
+  });
+
+  // ==========================================================================
+  // BILLING TRANSACTION ASSOCIATIONS
+  // ==========================================================================
+
+  BillingTransaction.belongsTo(Patient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+  BillingTransaction.belongsTo(Appointment, {
+    foreignKey: 'appointment_id',
+    as: 'appointment',
+  });
+  BillingTransaction.belongsTo(Admission, {
+    foreignKey: 'admission_id',
+    as: 'admission',
+  });
+
+  // Reverse associations
+  Patient.hasMany(BillingTransaction, {
+    foreignKey: 'patient_id',
+    as: 'billingTransactions',
+  });
+  Appointment.hasMany(BillingTransaction, {
+    foreignKey: 'appointment_id',
+    as: 'billingTransactions',
+  });
+  Admission.hasMany(BillingTransaction, {
+    foreignKey: 'admission_id',
+    as: 'billingTransactions',
+  });
+
   // ==========================================================================
   // ERTS SERVICE ASSOCIATIONS
   // ==========================================================================
@@ -462,7 +858,7 @@ export const setupAssociations = () => {
   Patient.hasMany(ERVisit, { foreignKey: 'patient_id', as: 'erVisits' });
   ERVisit.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
-  // Staff ↔ ERVisit (Triage Nurse)
+  // Staff ↔ ERVisit
   Staff.hasMany(ERVisit, {
     foreignKey: 'triage_nurse_id',
     as: 'triagedVisits',
@@ -471,8 +867,6 @@ export const setupAssociations = () => {
     foreignKey: 'triage_nurse_id',
     as: 'triageNurse',
   });
-
-  // Staff ↔ ERVisit (Assigned Doctor)
   Staff.hasMany(ERVisit, {
     foreignKey: 'assigned_doctor_id',
     as: 'assignedERVisits',
@@ -517,214 +911,49 @@ export const setupAssociations = () => {
   });
 
   // ==========================================================================
-  // IBMS SERVICE ASSOCIATIONS
+  // VIDEO CONSULTATION ASSOCIATIONS
   // ==========================================================================
 
-  // Department ↔ Staff (One-to-Many)
-  Department.hasMany(Staff, { foreignKey: 'department_id', as: 'staff' });
-  Staff.belongsTo(Department, {
-    foreignKey: 'department_id',
-    as: 'department',
-  });
-
-  // Staff ↔ Person
-  Staff.belongsTo(Person, {
-    foreignKey: 'person_id',
-    as: 'person',
-  });
-  Person.hasOne(Staff, {
-    foreignKey: 'person_id',
-    as: 'staff',
-  });
-
-  // Department ↔ Room (One-to-Many)
-  Department.hasMany(Room, { foreignKey: 'department_id', as: 'rooms' });
-  Room.belongsTo(Department, { foreignKey: 'department_id', as: 'department' });
-
-  // Room ↔ Bed (One-to-Many)
-  Room.hasMany(Bed, { foreignKey: 'room_id', as: 'beds' });
-  Bed.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
-
-  // Patient ↔ Admission (One-to-Many)
-  Patient.hasMany(Admission, { foreignKey: 'patient_id', as: 'admissions' });
-  Admission.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
-
-  // Staff ↔ Admission (Attending Doctor)
-  Staff.hasMany(Admission, {
-    foreignKey: 'attending_doctor_id',
-    as: 'admissions',
-  });
-  Admission.belongsTo(Staff, {
-    foreignKey: 'attending_doctor_id',
-    as: 'attendingDoctor',
-  });
-
-  // Admission ↔ BedAssignment (One-to-Many)
-  Admission.hasMany(BedAssignment, {
-    foreignKey: 'admission_id',
-    as: 'bedAssignments',
-  });
-  BedAssignment.belongsTo(Admission, {
-    foreignKey: 'admission_id',
-    as: 'admission',
-  });
-
-  // Bed ↔ BedAssignment (One-to-Many)
-  Bed.hasMany(BedAssignment, { foreignKey: 'bed_id', as: 'assignments' });
-  BedAssignment.belongsTo(Bed, { foreignKey: 'bed_id', as: 'bed' });
-
-  // Staff ↔ BedAssignment (Assigned By)
-  Staff.hasMany(BedAssignment, {
-    foreignKey: 'assigned_by',
-    as: 'bedAssignments',
-  });
-  BedAssignment.belongsTo(Staff, {
-    foreignKey: 'assigned_by',
-    as: 'assignedBy',
-  });
-
-  // ==========================================================================
-  // MEDICAL RECORD ASSOCIATIONS WITH OTHER SERVICES
-  // ==========================================================================
-
-  // MedicalRecord ↔ Staff (Doctor)
-  Staff.hasMany(MedicalRecord, {
-    foreignKey: 'doctor_id',
-    as: 'medicalRecords',
-  });
-  MedicalRecord.belongsTo(Staff, { foreignKey: 'doctor_id', as: 'doctor' });
-
-  // MedicalRecord ↔ Appointment (Optional)
-  MedicalRecord.belongsTo(Appointment, {
-    foreignKey: 'visit_id',
-    as: 'appointment',
-  });
-  Appointment.hasMany(MedicalRecord, {
-    foreignKey: 'visit_id',
-    as: 'medicalRecords',
-  });
-
-  // Appointment ↔ AppointmentHistory
-  Appointment.hasMany(AppointmentHistory, {
+  // Appointment ↔ VideoConsultation (One-to-One)
+  Appointment.hasOne(VideoConsultation, {
     foreignKey: 'appointment_id',
-    as: 'history',
+    as: 'videoConsultation',
+    onDelete: 'CASCADE',
   });
-  AppointmentHistory.belongsTo(Appointment, {
+  VideoConsultation.belongsTo(Appointment, {
     foreignKey: 'appointment_id',
     as: 'appointment',
   });
 
-  // AppointmentPricing ↔ Staff (optional - for doctor-specific pricing)
-  AppointmentPricing.belongsTo(Staff, {
-    foreignKey: 'staff_id',
-    as: 'staff',
-  });
-  Staff.hasMany(AppointmentPricing, {
-    foreignKey: 'staff_id',
-    as: 'pricing',
-  });
-
-  // AppointmentHistory ↔ User (changed_by)
-  AppointmentHistory.belongsTo(User, {
-    foreignKey: 'changed_by',
-    as: 'changedBy',
-  });
-
-  // AppointmentPricing ↔ Department (optional - for department-specific pricing)
-  AppointmentPricing.belongsTo(Department, {
-    foreignKey: 'department_id',
-    as: 'department',
-  });
-  Department.hasMany(AppointmentPricing, {
-    foreignKey: 'department_id',
-    as: 'pricing',
-  });
-
-  // AppointmentPayment -> User (processed_by)
-  AppointmentPayment.belongsTo(User, {
-    foreignKey: 'processed_by',
-    as: 'processedBy',
-  });
-
-  // Appointment ↔ AppointmentPayment
-  Appointment.hasMany(AppointmentPayment, {
+  // Appointment ↔ VideoWaitingRoom (One-to-Many)
+  Appointment.hasMany(VideoWaitingRoom, {
     foreignKey: 'appointment_id',
-    as: 'payments',
+    as: 'waitingRoom',
+    onDelete: 'CASCADE',
   });
-  AppointmentPayment.belongsTo(Appointment, {
+  VideoWaitingRoom.belongsTo(Appointment, {
     foreignKey: 'appointment_id',
     as: 'appointment',
   });
 
-  // MedicalRecord ↔ ERVisit (Optional)
-  MedicalRecord.belongsTo(ERVisit, { foreignKey: 'visit_id', as: 'erVisit' });
-  ERVisit.hasMany(MedicalRecord, {
-    foreignKey: 'visit_id',
-    as: 'medicalRecords',
-  });
+  // User ↔ VideoWaitingRoom (One-to-Many)
+  User.hasMany(VideoWaitingRoom, { foreignKey: 'user_id', as: 'waitingRooms' });
+  VideoWaitingRoom.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-  // MedicalRecord ↔ Admission (Optional)
-  MedicalRecord.belongsTo(Admission, {
-    foreignKey: 'visit_id',
-    as: 'admission',
+  // VideoConsultation ↔ ConsultationMessage (One-to-Many)
+  VideoConsultation.hasMany(ConsultationMessage, {
+    foreignKey: 'consultation_id',
+    as: 'messages',
+    onDelete: 'CASCADE',
   });
-  Admission.hasMany(MedicalRecord, {
-    foreignKey: 'visit_id',
-    as: 'medicalRecords',
+  ConsultationMessage.belongsTo(VideoConsultation, {
+    foreignKey: 'consultation_id',
+    as: 'consultation',
   });
 
   console.log('✅ All model associations setup completed!');
 };
 
-// ==========================================
-// VIDEO CONSULTATION ASSOCIATIONS
-// ==========================================
-
-// Appointment ↔ VideoConsultation (One-to-One)
-Appointment.hasOne(VideoConsultation, {
-  foreignKey: 'appointment_id',
-  as: 'videoConsultation',
-  onDelete: 'CASCADE',
-});
-
-VideoConsultation.belongsTo(Appointment, {
-  foreignKey: 'appointment_id',
-  as: 'appointment',
-});
-
-// Appointment ↔ VideoWaitingRoom (One-to-Many)
-Appointment.hasMany(VideoWaitingRoom, {
-  foreignKey: 'appointment_id',
-  as: 'waitingRoom',
-  onDelete: 'CASCADE',
-});
-VideoWaitingRoom.belongsTo(Appointment, {
-  foreignKey: 'appointment_id',
-  as: 'appointment',
-});
-
-// VideoConsultation ↔ ConsultationMessage (One-to-Many)
-VideoConsultation.hasMany(ConsultationMessage, {
-  foreignKey: 'consultation_id',
-  as: 'messages',
-  onDelete: 'CASCADE',
-});
-ConsultationMessage.belongsTo(VideoConsultation, {
-  foreignKey: 'consultation_id',
-  as: 'consultation',
-});
-
-// User ↔ VideoWaitingRoom (One-to-Many)
-
-User.hasMany(VideoWaitingRoom, {
-  foreignKey: 'user_id',
-  as: 'waitingRooms',
-});
-
-VideoWaitingRoom.belongsTo(User, {
-  foreignKey: 'user_id',
-  as: 'user',
-});
 // ============================================================================
 // DATABASE INITIALIZATION
 // ============================================================================
@@ -759,69 +988,11 @@ export const initializeDatabase = async (options = {}) => {
 // Export sequelize instance for use in services
 export { sequelize };
 
-// Default export with all models
+// Optional: Default export with all models and functions
 export default {
-  // Auth Models
-  User,
-  UserSession,
-  LoginAttempt,
-  PasswordResetToken,
-  EmailVerificationToken,
-  TwoFactorAuth,
-  AccountLockout,
-  Role,
-  Permission,
-  UserRole,
-  RolePermission,
-  PrivacyPreference,
-
-  // Patient Models
-  Person,
-  PersonContact,
-  PersonAddress,
-  Patient,
-  MedicalRecord,
-  Allergy,
-  PatientConsent,
-  DoctorPatientAssignment,
-  PHIAccessLog,
-  AuditLog,
-  Region,
-  Province,
-  City,
-  Barangay,
-  IdType,
-  PersonIdentification,
-
-  // Appointment Models
-  Appointment,
-  AppointmentCheckIn,
-  DoctorSchedule,
-  DoctorLeave,
-  TelehealthSession,
-  TelehealthNote,
-
-  // ERTS Models
-  ERVisit,
-  TriageAssessment,
-  ERTreatment,
-
-  // IBMS Models
-  Department,
-  Staff,
-  Room,
-  Bed,
-  Admission,
-  BedAssignment,
-  IdSequence,
-
-  // Videocall Models
-  VideoConsultation,
-  VideoWaitingRoom,
-  ConsultationMessage,
-
-  // Database functions
+  // ...all models could be listed here if you need a default export
   setupAssociations,
   initializeDatabase,
   sequelize,
+  // Note: Models would be duplicated here if we include them
 };

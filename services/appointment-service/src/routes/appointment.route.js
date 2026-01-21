@@ -7,33 +7,6 @@ import {
 
 const router = express.Router();
 
-// Appointment types
-router.get('/appointment-types', appointmentController.appointmentTypes);
-
-// Book new appointment (Patient or Receptionist)
-router.post(
-  '/book',
-  [authenticate, authorizeRole('patient', 'receptionist', 'admin')],
-  appointmentController.bookAppointment
-);
-
-// Get appointment by ID
-router.get(
-  '/:appointmentId',
-  authenticate,
-  appointmentController.getAppointmentById
-);
-
-// Get patient's appointments
-router.get(
-  '/patient/:patientUuid',
-  authenticate,
-  appointmentController.getPatientAppointments
-);
-
-// Calculate fee (before booking)
-router.get('/calculate-fee', authenticate, appointmentController.calculateFee);
-
 // ==================================================
 // STAFF ROUTES
 // ==================================================
@@ -43,50 +16,73 @@ router.get(
   '/doctors/:doctorUuid/appointments',
   authenticate,
   authorizeRole('admin', 'doctor', 'receptionist'),
-  appointmentController.getDoctorAppointments
+  appointmentController.getDoctorAppointments,
 );
 
 // Get today's appointments (for doctors/receptionists)
 router.get(
   '/today',
-  [authenticate, authorizeRole('doctor', 'receptionist', 'admin')],
-  appointmentController.getTodaysAppointments
-);
-
-// Check-in appointment (Receptionist)
-router.patch(
-  '/:appointmentId/check-in',
-  [authenticate, authorizeRole('receptionist', 'admin')],
-  appointmentController.checkInAppointment
-);
-
-// Cancel appointment (Patient, Receptionist, or Admin)
-router.patch(
-  '/:appointmentId/cancel',
-  [authenticate, authorizeRole('patient', 'receptionist', 'admin')],
-  appointmentController.cancelAppointment
+  [authenticate],
+  appointmentController.getTodaysAppointments,
 );
 
 // Reschedule appointment
 router.patch(
   '/:appointmentId/reschedule',
   [authenticate, authorizeRole('patient', 'receptionist', 'admin')],
-  appointmentController.rescheduleAppointment
+  appointmentController.rescheduleAppointment,
 );
+
+router.patch('/:appointmentId/update-status', [
+  authenticate,
+  authorizeRole('doctor', 'nurse', 'receptionist'),
+  appointmentController.updateAppointmentStatus,
+]);
 
 // Extend appointment (Doctor only)
 router.patch(
   '/:appointmentId/extend',
   [authenticate, authorizeRole('doctor', 'admin')],
-  appointmentController.extendAppointment
+  appointmentController.extendAppointment,
 );
 
 // Complete appointment (Doctor only)
 router.patch(
   '/:appointmentId/complete',
   [authenticate, authorizeRole('doctor', 'admin')],
-  appointmentController.completeAppointment
+  appointmentController.completeAppointment,
 );
+
+// ==================================================
+// Public ROUTES
+// ==================================================
+
+// Appointment types
+router.get('/appointment-types', appointmentController.appointmentTypes);
+
+// Book new appointment (Patient or Receptionist)
+router.post(
+  '/book',
+  [authenticate, authorizeRole('patient', 'receptionist', 'admin')],
+  appointmentController.bookAppointment,
+);
+
+// Get appointment by ID
+router.get(
+  '/:appointmentId',
+  authenticate,
+  appointmentController.getAppointmentById,
+);
+
+// Get patient's appointments
+router.get(
+  '/patient/:patientUuid',
+  authenticate,
+  appointmentController.getPatientAppointments,
+);
+
+// Calculate fee (before booking)
+router.get('/calculate-fee', authenticate, appointmentController.calculateFee);
 
 // ==================================================
 // PAYMENT ROUTES
@@ -96,7 +92,7 @@ router.patch(
 router.post(
   '/:appointmentId/payment',
   [authenticate, authorizeRole('receptionist', 'admin')],
-  appointmentController.processPayment
+  appointmentController.processPayment,
 );
 
 router.get('/calculate-fee', authenticate, appointmentController.calculateFee);
@@ -109,7 +105,7 @@ router.get('/calculate-fee', authenticate, appointmentController.calculateFee);
 router.get(
   '/:appointmentId/history',
   [authenticate, authorizeRole('doctor', 'receptionist', 'admin')],
-  appointmentController.getAppointmentHistory
+  appointmentController.getAppointmentHistory,
 );
 
 export default router;

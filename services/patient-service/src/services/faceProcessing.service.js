@@ -1,11 +1,3 @@
-// ============================================================================
-// COMPLETE FIXED SOLUTION - Face Registration with Proper Duplicate Detection
-// ============================================================================
-
-// ============================================================================
-// 1. FACE PROCESSING SERVICE (faceProcessing.service.js)
-// ============================================================================
-
 import FormData from 'form-data';
 import axios from 'axios';
 import sharp from 'sharp';
@@ -29,10 +21,6 @@ export default class FaceProcessingService {
     this.minDelay = 2000; // 2 seconds between requests
     this.initializeFaceSet();
   }
-
-  // ==========================================================================
-  // QUEUE & RETRY LOGIC
-  // ==========================================================================
 
   async queueRequest(apiCall) {
     return new Promise((resolve, reject) => {

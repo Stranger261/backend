@@ -15,9 +15,10 @@ app.use(
   cors({
     origin: [
       'http://localhost:5173',
+      'http://localhost:5174',
       'http://192.168.100.11:5173',
       'https://core1.health-ease-hospital.com',
-      'https://pessimistically-sociogenic-misha.ngrok-free.dev',
+      'https://http://kiosk.face-scan.health-ease-hospital.com/',
     ],
     credentials: true,
   })

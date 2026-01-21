@@ -196,6 +196,36 @@ class updatePersonService {
     }
   }
 
+  // person
+  async updateCivilStatus(userUuid, updatedStatus) {
+    const transaction = await sequelize.transaction();
+    try {
+      const user = await User.findOne({
+        where: { user_uuid: userUuid },
+        include: [{ model: Person, as: 'person' }],
+        transaction,
+      });
+
+      const person = user.person;
+
+      const updatedPerson = await person.update(
+        { civil_status: updatedStatus },
+        { transaction }
+      );
+
+      await transaction.commit();
+      return updatedPerson;
+    } catch (error) {
+      if (!transaction.finished) {
+        await transaction.rollback();
+      }
+      console.error('Update civil status failed:', error.message);
+      throw error instanceof AppError
+        ? error
+        : new AppError('Update civil status failed', 500);
+    }
+  }
+
   // update medical records
   /**
    * Generic patient field update

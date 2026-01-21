@@ -128,6 +128,7 @@ export default new (class authRegistration {
       const expiresAt = new Date(
         Date.now() + process.env.OTP_EXPIRY_MINUTES * 60 * 1000
       );
+      console.log(expiresAt);
 
       const isEmailSent = await sendOTPEmail(email, otpCode);
       if (!isEmailSent.success) {
@@ -546,8 +547,6 @@ export default new (class authRegistration {
 
     const transaction = await sequelize.transaction();
     try {
-      console.log('🎭 Auth Service: Starting face verification...');
-
       const user = await User.findOne({
         where: {
           user_uuid: userUUID,
@@ -564,10 +563,6 @@ export default new (class authRegistration {
         );
       }
 
-      console.log(
-        '📡 Auth Service: Calling Patient Service for verification...'
-      );
-
       const verificationRes = await patientApi.post('/person/verify-face', {
         userUUID,
         livePhotoBase64,
@@ -576,7 +571,6 @@ export default new (class authRegistration {
       });
 
       const { verified, confidence, match_details } = verificationRes.data.data;
-      console.log(verified, confidence, match_details);
 
       if (verified) {
         await user.update(
@@ -614,8 +608,6 @@ export default new (class authRegistration {
           400
         );
       }
-
-      console.log('still got this but the face is not the same');
 
       return {
         verified,

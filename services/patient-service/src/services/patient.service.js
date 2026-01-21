@@ -161,6 +161,8 @@ class patientServce {
           civil_status: patientData.person?.civil_status,
           occupation: patientData.person?.occupation,
           religion: patientData.person?.religion,
+          height: patient.height,
+          weight: patient.weight,
 
           // User/Contact details
           phone: patientData.person?.user?.phone,
@@ -222,6 +224,56 @@ class patientServce {
       throw error instanceof AppError
         ? error
         : new AppError(`Get doctor's patient error`, 500);
+    }
+  }
+
+  async getPatientMedicalRecord(patientUuid, filters) {
+    try {
+      const { record_type, searchTerm } = filters;
+      const patient = await Patient.findOne({
+        where: { patient_uuid: patientUuid },
+      });
+
+      if (!patient) {
+        throw new AppError('Patient not found.', 404);
+      }
+
+      const where = { patient_id: patient.patient_id };
+
+      if (record_type && record_type !== 'all') {
+        where.record_type = record_type;
+      }
+
+      if (searchTerm) {
+        where[Op.or] = [
+          { diagnosis: { [Op.like]: `%${searchTerm}%` } },
+          { chief_complaint: { [Op.like]: `%${searchTerm}%` } },
+        ];
+      }
+
+      const medicalRecords = await MedicalRecord.findAll({
+        where,
+        include: [
+          {
+            model: Staff,
+            as: 'doctor',
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                attributes: ['first_name', 'last_name'],
+              },
+            ],
+          },
+        ],
+      });
+
+      return medicalRecords;
+    } catch (error) {
+      console.error('Get patient medical record failed: ', error.message);
+      throw error instanceof AppError
+        ? error
+        : new AppError('Fetch patient medical error.', 500);
     }
   }
 
@@ -326,6 +378,42 @@ class patientServce {
       throw error instanceof AppError
         ? error
         : new AppError('Get patient medical history failed.', 500);
+    }
+  }
+
+  async getPatient(searchQuery) {
+    try {
+      const where = { patient_status: 'active' };
+
+      if (searchQuery) {
+        where[Op.or] = [
+          { mrn: { [Op.like]: `%${searchQuery}%` } },
+          { patient_uuid: { [Op.like]: `%${searchQuery}%` } },
+          { '$person.first_name$': { [Op.like]: `%${searchQuery}%` } },
+          { '$person.last_name$': { [Op.like]: `%${searchQuery}%` } },
+          { '$person.user.email$': { [Op.like]: `%${searchQuery}%` } },
+          { '$person.user.phone$': { [Op.like]: `%${searchQuery}%` } },
+        ];
+      }
+      const patient = await Patient.findAll({
+        where,
+        include: [
+          {
+            model: Person,
+            as: 'person',
+            include: [{ model: User, as: 'user' }],
+          },
+        ],
+      });
+      if (!patient) {
+        throw new AppError('No patient found.', 404);
+      }
+
+      return patient;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError('Failed to get patient.', 500);
     }
   }
 }

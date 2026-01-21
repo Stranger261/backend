@@ -11,13 +11,25 @@ const router = express.Router();
 router.get(
   '/doctors/:doctorUuid/patients',
   [authenticate, authorizeRole('doctor', 'receptionist', 'nurse')],
-  patientController.getDoctorsPatients
+  patientController.getDoctorsPatients,
+);
+
+router.get(
+  '/:patientUuid/med-records',
+  authenticate,
+  patientController.getPatientMedicalRecord,
 );
 
 router.get(
   '/:patientUuid/med-history',
   authenticate,
-  patientController.getPatientMedicalHistory
+  patientController.getPatientMedicalHistory,
+);
+
+router.get(
+  '/',
+  [authenticate, authorizeRole('receptionist', 'doctor', 'nurse')],
+  patientController.getPatient,
 );
 
 export default router;

@@ -46,7 +46,6 @@ export const broadcastToAll = async (event, data) => {
       event,
       data,
     });
-    console.log(`✅ Broadcasted: ${event} to all clients`);
   } catch (error) {
     console.error(`❌ Failed to broadcast ${event}:`, error.message);
   }
