@@ -16,7 +16,16 @@ class IdSequence extends Model {
         er_visit: { prefix: 'ER', padding_length: 6 },
         invoice: { prefix: 'INV', padding_length: 6 },
         prescription: { prefix: 'RX', padding_length: 6 },
+
+        // LAB / LIS
         lab_order: { prefix: 'LAB', padding_length: 6 },
+        lis_order: { prefix: 'LIS', padding_length: 6 },
+        lis_specimen: { prefix: 'SPC', padding_length: 6 },
+        lis_result: { prefix: 'RES', padding_length: 6 },
+
+        // RADIOLOGY / RIS
+        ris_accession: { prefix: 'ACC', padding_length: 6 },
+        ris_report: { prefix: 'RPT', padding_length: 6 },
       };
 
       const defaults = sequenceDefaults[sequenceType];
@@ -53,7 +62,7 @@ class IdSequence extends Model {
           sequence.prefix,
           currentYear,
           1,
-          sequence.padding_length
+          sequence.padding_length,
         );
       }
 
@@ -68,7 +77,7 @@ class IdSequence extends Model {
         sequence.prefix,
         sequence.year,
         sequence.current_value,
-        sequence.padding_length
+        sequence.padding_length,
       );
     } catch (error) {
       await transaction.rollback();
@@ -97,7 +106,12 @@ IdSequence.init(
         'er_visit',
         'invoice',
         'prescription',
-        'lab_order'
+        'lab_order',
+        'ris_accession',
+        'ris_report',
+        'lis_order',
+        'lis_specimen',
+        'lis_result',
       ),
       unique: true,
       allowNull: false,
@@ -132,7 +146,7 @@ IdSequence.init(
     modelName: 'IdSequence',
     tableName: 'id_sequences',
     timestamps: false,
-  }
+  },
 );
 
 export default IdSequence;

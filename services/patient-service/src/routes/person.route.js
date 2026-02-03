@@ -13,20 +13,26 @@ const router = express.Router();
 router.post(
   '/register',
   [attachRequestInfo, protectInternalApi],
-  personController.registerPerson
+  personController.registerPerson,
+);
+
+router.post(
+  '/register/walk-in',
+  [attachRequestInfo, authenticate],
+  personController.registerPersonWalkIn,
 );
 
 router.post(
   '/verify-face',
   [protectInternalApi],
-  personController.verifyPersonFace
+  personController.verifyPersonFace,
 );
 
 // external
 router.get(
   '/external/user/:userUUID',
   [protectInternalApi],
-  personController.getPerson
+  personController.getPerson,
 );
 
 export default router;

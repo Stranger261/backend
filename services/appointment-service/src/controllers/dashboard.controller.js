@@ -5,7 +5,7 @@ import DashboardService from '../services/dashboard.service.js';
 
 export const getDashboardStats = asyncHandler(async (req, res) => {
   const userRole = req.user.role;
-  let userUuid = req.query.user_uuid;
+  let userUuid = req.query.user_uuid || req.user?.user_uuid;
 
   if (!userUuid) {
     userUuid =
@@ -24,9 +24,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 export const getPatientUpcomingAppointments = asyncHandler(async (req, res) => {
   const patientUuid = req.user.patient_uuid;
 
-  const appt = await DashboardService.getPatientUpcomingAppointments(
-    patientUuid
-  );
+  const appt =
+    await DashboardService.getPatientUpcomingAppointments(patientUuid);
 
   messageSender(200, 'Success.', appt, res);
 });

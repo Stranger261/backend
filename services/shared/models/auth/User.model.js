@@ -28,7 +28,7 @@ User.init(
     },
     email: {
       type: DataTypes.STRING(255),
-      allowNull: false,
+      allowNull: true,
       unique: true,
       validate: { isEmail: true },
     },
@@ -38,14 +38,24 @@ User.init(
     },
     phone: {
       type: DataTypes.STRING(20),
-      allowNull: false,
+      allowNull: true,
+    },
+    mfa_enabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+    },
+    mfa_method: {
+      type: DataTypes.ENUM('totp', 'sms', 'email', 'disabled'),
+      allowNull: true,
+      defaultValue: 'disabled',
     },
     registration_status: {
       type: DataTypes.ENUM(
         'email_verification',
         'personal_info_verification',
         'face_verification',
-        'completed'
+        'completed',
       ),
       defaultValue: 'email_verification',
     },
@@ -67,6 +77,14 @@ User.init(
       allowNull: true,
       defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),
     },
+    remember_token_hash: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    remember_token_expires_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     sequelize,
@@ -87,7 +105,7 @@ User.init(
         }
       },
     },
-  }
+  },
 );
 
 export default User;

@@ -13,14 +13,21 @@ const proxy = createProxyServer({});
 
 // Map of route prefixes → internal microservice URLs
 const routes = {
+  // auth
   '/api/v1/auth': 'http://127.0.0.1:56731',
   '/api/v1/registration': 'http://127.0.0.1:56731',
+
+  // patient
   '/api/v1/faceplusplus': 'http://127.0.0.1:56732',
   '/api/v1/address': 'http://127.0.0.1:56732',
   '/api/v1/person': 'http://127.0.0.1:56732',
   '/api/v1/patients': 'http://127.0.0.1:56732',
   '/api/v1/allergies': 'http://127.0.0.1:56732',
   '/api/v1/updatePerson': 'http://127.0.0.1:56732',
+  '/api/v1/medical-records': 'http://127.0.0.1:56732',
+  '/api/v1/care-team': 'http://127.0.0.1:56732',
+
+  // appointment
   '/api/v1/doctors': 'http://127.0.0.1:56733',
   '/api/v1/appointments': 'http://127.0.0.1:56733',
   '/api/v1/dashboard': 'http://127.0.0.1:56733',
@@ -28,8 +35,25 @@ const routes = {
   '/api/v1/appointment-diagnosis': 'http://127.0.0.1:56733',
   '/api/v1/appointment-consultation': 'http://127.0.0.1:56733',
   '/api/v1/prescriptions': 'http://127.0.0.1:56733',
+  '/api/v1/lab': 'http://127.0.0.1:56733',
+
+  // ibms
+  '/api/v1/bed': 'http://127.0.0.1:56734',
+  '/api/v1/bedAssignment': 'http://127.0.0.1:56734',
+  '/api/v1/progressNote': 'http://127.0.0.1:56734',
+  '/api/v1/doctorAdmission': 'http://127.0.0.1:56734',
+  '/api/v1/bedStats': 'http://127.0.0.1:56734',
+
+  // er
+  '/api/v1/er': 'http://127.0.0.1:56735',
+
+  // notif
   '/api/v1/notifications': 'http://127.0.0.1:56737',
+
+  // online
   '/api/v1/online-video': 'http://127.0.0.1:56738',
+
+  // kiosk
   '/api/v1/kiosk': 'http://127.0.0.1:56739',
 };
 
@@ -40,6 +64,8 @@ const ALLOWED_ORIGINS = [
   'http://192.168.100.11:5173',
   'https://core1.health-ease-hospital.com',
   'https://kiosk.face-scan.health-ease-hospital.com',
+  'https://kiosk-er.vercel.app',
+  'https://kiosk-ass.vercel.app',
 ];
 
 // CORS handler function

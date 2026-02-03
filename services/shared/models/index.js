@@ -7,6 +7,7 @@ import LoginAttempt from './auth/LoginAttempt.model.js';
 import PasswordResetToken from './auth/PasswordResetToken.model.js';
 import EmailVerificationToken from './auth/EmailVerificationToken.model.js';
 import TwoFactorAuth from './auth/TwoFactorAuth.model.js';
+import TrustedDevice from './auth/TrustedDevice.model.js';
 import AccountLockout from './auth/AccountLockout.model.js';
 import Role from './auth/Role.model.js';
 import Permission from './auth/Permission.model.js';
@@ -53,6 +54,7 @@ import Room from './ibms/Room.model.js';
 import Bed from './ibms/Bed.model.js';
 import Admission from './ibms/Admission.model.js';
 import BedAssignment from './ibms/BedAssignment.model.js';
+import BedStatusLog from './ibms/BedStatusLogs.model.js';
 import IdSequence from './ibms/IdSequence.model.js';
 
 import Prescription from './prescription/Prescription.model.js';
@@ -62,6 +64,22 @@ import LabOrder from './laboratory/LabOrder.model.js';
 import LabOrderTest from './laboratory/LabOrderTest.model.js';
 
 import ImagingOrder from './imaging/ImagingOrder.model.js';
+// LIS
+import LisService from './laboratory/LIS/LisService.model.js';
+import LisPatient from './laboratory/LIS/LisPatient.model.js';
+import LisTestOrder from './laboratory/LIS/LisTestOrder.model.js';
+import LisSpecimen from './laboratory/LIS/LisSpecimen.model.js';
+import LisTestResult from './laboratory/LIS/LisTestResult.model.js';
+import LisQualityControl from './laboratory/LIS/LisQualityControl.model.js';
+import LisBilling from './laboratory/LIS/LisBilling.model.js';
+import LisInventory from './laboratory/LIS/LisInventory.model.js';
+
+import RisService from './laboratory/RIS/RisService.model.js';
+import RisPatient from './laboratory/RIS/RisPatient.model.js';
+import RisAppointment from './laboratory/RIS/RisAppointment.model.js';
+import RisImagingStudy from './laboratory/RIS/RisImagingStudy.model.js';
+import RisReport from './laboratory/RIS/RisReport.model.js';
+import RisBilling from './laboratory/RIS/RisBilling.model.js';
 
 import BillingTransaction from './billing/BillingTransaction.model.js';
 
@@ -69,6 +87,10 @@ import Notification from './notification/notification.model.js';
 import VideoConsultation from './videocall/VideoConsultation.model.js';
 import VideoWaitingRoom from './videocall/VideoWaitingRoom.model.js';
 import ConsultationMessage from './videocall/ConsultationMessage.model.js';
+import AdmissionProgressNote from './ibms/AdmissionProgressNote.model.js';
+import PatientCareTeam from './patient/PatientCareTeam.model.js';
+import ConsentRestriction from './patient/ConsentRestriction.mode.js';
+import AccessRequest from './patient/AccessRequest.model.js';
 
 // ============================================================================
 // EXPORT ALL MODELS AND FUNCTIONS
@@ -82,6 +104,7 @@ export {
   PasswordResetToken,
   EmailVerificationToken,
   TwoFactorAuth,
+  TrustedDevice,
   AccountLockout,
   Role,
   Permission,
@@ -106,6 +129,9 @@ export {
   Barangay,
   IdType,
   PersonIdentification,
+  ConsentRestriction,
+  PatientCareTeam,
+  AccessRequest,
 
   // Appointment Models
   Appointment,
@@ -127,6 +153,22 @@ export {
   // Lab
   LabOrder,
   LabOrderTest,
+  // LIS
+  LisService,
+  LisPatient,
+  LisTestOrder,
+  LisSpecimen,
+  LisTestResult,
+  LisQualityControl,
+  LisBilling,
+  LisInventory,
+  // RIS
+  RisService,
+  RisPatient,
+  RisAppointment,
+  RisImagingStudy,
+  RisReport,
+  RisBilling,
 
   // Imaging
   ImagingOrder,
@@ -146,7 +188,9 @@ export {
   Bed,
   Admission,
   BedAssignment,
+  BedStatusLog,
   IdSequence,
+  AdmissionProgressNote,
 
   // Notification Model
   Notification,
@@ -286,16 +330,9 @@ export const setupAssociations = () => {
     foreignKey: 'patient_id',
     as: 'medicalRecords',
   });
-  MedicalRecord.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
   Patient.hasMany(Allergy, { foreignKey: 'patient_id', as: 'allergies' });
   Allergy.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
-
-  Patient.hasMany(PatientConsent, { foreignKey: 'patient_id', as: 'consents' });
-  PatientConsent.belongsTo(Patient, {
-    foreignKey: 'patient_id',
-    as: 'patient',
-  });
 
   Patient.hasMany(DoctorPatientAssignment, {
     foreignKey: 'patient_id',
@@ -305,9 +342,6 @@ export const setupAssociations = () => {
     foreignKey: 'patient_id',
     as: 'patient',
   });
-
-  Patient.hasMany(PHIAccessLog, { foreignKey: 'patient_id', as: 'accessLogs' });
-  PHIAccessLog.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
   // Staff ↔ DoctorPatientAssignment (One-to-Many)
   Staff.hasMany(DoctorPatientAssignment, {
@@ -322,8 +356,62 @@ export const setupAssociations = () => {
   // PHIAccessLog associations
   User.hasMany(PHIAccessLog, { foreignKey: 'user_id', as: 'phiAccessLogs' });
   PHIAccessLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
   Staff.hasMany(PHIAccessLog, { foreignKey: 'staff_id', as: 'phiAccessLogs' });
   PHIAccessLog.belongsTo(Staff, { foreignKey: 'staff_id', as: 'staff' });
+
+  Patient.hasMany(PHIAccessLog, { foreignKey: 'patient_id', as: 'accessLogs' });
+  PHIAccessLog.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
+
+  // pateint consent associations
+  PatientConsent.belongsTo(Staff, { foreignKey: 'created_by', as: 'creator' });
+  PatientConsent.belongsTo(Patient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+  Patient.hasMany(PatientConsent, { foreignKey: 'patient_id', as: 'consents' });
+
+  // ConsentRestriction associations
+  ConsentRestriction.belongsTo(Patient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+  ConsentRestriction.belongsTo(Staff, {
+    foreignKey: 'restricted_staff_id',
+    as: 'restrictedStaff',
+  });
+  ConsentRestriction.belongsTo(User, {
+    foreignKey: 'created_by',
+    as: 'creator',
+  });
+
+  // PatientCareTeam associations
+  PatientCareTeam.belongsTo(Patient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+  PatientCareTeam.belongsTo(Staff, {
+    foreignKey: 'staff_id',
+    as: 'staff',
+  });
+  PatientCareTeam.belongsTo(User, {
+    foreignKey: 'assigned_by',
+    as: 'assigner',
+  });
+
+  // AccessRequest associations
+  AccessRequest.belongsTo(User, {
+    foreignKey: 'requester_id',
+    as: 'requester',
+  });
+  AccessRequest.belongsTo(User, {
+    foreignKey: 'approved_by',
+    as: 'approver',
+  });
+  AccessRequest.belongsTo(Patient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
 
   // AuditLog associations
   User.hasMany(AuditLog, { foreignKey: 'user_id', as: 'auditLogs' });
@@ -385,14 +473,6 @@ export const setupAssociations = () => {
     foreignKey: 'department_id',
     as: 'department',
   });
-
-  // Department ↔ Room (One-to-Many)
-  Department.hasMany(Room, { foreignKey: 'department_id', as: 'rooms' });
-  Room.belongsTo(Department, { foreignKey: 'department_id', as: 'department' });
-
-  // Room ↔ Bed (One-to-Many)
-  Room.hasMany(Bed, { foreignKey: 'room_id', as: 'beds' });
-  Bed.belongsTo(Room, { foreignKey: 'room_id', as: 'room' });
 
   // ==========================================================================
   // APPOINTMENT SERVICE ASSOCIATIONS
@@ -596,6 +676,16 @@ export const setupAssociations = () => {
   });
   Prescription.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
+  Prescription.belongsTo(MedicalRecord, {
+    foreignKey: 'prescription_id',
+    as: 'prescriptions',
+  });
+
+  MedicalRecord.hasMany(Prescription, {
+    foreignKey: 'prescription_id',
+    as: 'prescriptions',
+  });
+
   // Reverse associations
   Appointment.hasMany(Prescription, {
     foreignKey: 'appointment_id',
@@ -633,6 +723,121 @@ export const setupAssociations = () => {
   // ==========================================================================
   // LAB ORDER ASSOCIATIONS
   // ==========================================================================
+  LisPatient.hasMany(LisTestOrder, {
+    foreignKey: 'patient_id',
+    as: 'orders',
+  });
+
+  LisPatient.hasMany(LisSpecimen, {
+    foreignKey: 'patient_id',
+    as: 'specimens',
+  });
+
+  LisPatient.hasMany(LisBilling, {
+    foreignKey: 'patient_id',
+    as: 'bills',
+  });
+
+  // Service associations
+  LisService.hasMany(LisTestOrder, {
+    foreignKey: 'service_id',
+    as: 'orders',
+  });
+
+  LisService.hasMany(LisTestResult, {
+    foreignKey: 'service_id',
+    as: 'results',
+  });
+
+  LisService.hasMany(LisQualityControl, {
+    foreignKey: 'service_id',
+    as: 'qcRecords',
+  });
+
+  LisService.hasMany(LisBilling, {
+    foreignKey: 'service_id',
+    as: 'bills',
+  });
+
+  // Test Order associations
+  LisTestOrder.belongsTo(LisPatient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+
+  LisTestOrder.belongsTo(LisService, {
+    foreignKey: 'service_id',
+    as: 'service',
+  });
+
+  LisTestOrder.hasMany(LisSpecimen, {
+    foreignKey: 'order_id',
+    as: 'specimens',
+  });
+
+  LisTestOrder.hasMany(LisTestResult, {
+    foreignKey: 'order_id',
+    as: 'results',
+  });
+
+  LisTestOrder.hasOne(LisBilling, {
+    foreignKey: 'order_id',
+    as: 'billing',
+  });
+
+  // Specimen associations
+  LisSpecimen.belongsTo(LisPatient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+
+  LisSpecimen.belongsTo(LisTestOrder, {
+    foreignKey: 'order_id',
+    as: 'order',
+  });
+
+  LisSpecimen.hasMany(LisTestResult, {
+    foreignKey: 'specimen_id',
+    as: 'results',
+  });
+
+  // Test Result associations
+  LisTestResult.belongsTo(LisTestOrder, {
+    foreignKey: 'order_id',
+    as: 'order',
+  });
+
+  LisTestResult.belongsTo(LisSpecimen, {
+    foreignKey: 'specimen_id',
+    as: 'specimen',
+  });
+
+  LisTestResult.belongsTo(LisService, {
+    foreignKey: 'service_id',
+    as: 'service',
+  });
+
+  // Quality Control associations
+  LisQualityControl.belongsTo(LisService, {
+    foreignKey: 'service_id',
+    as: 'service',
+  });
+
+  // Billing associations
+  LisBilling.belongsTo(LisPatient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+
+  LisBilling.belongsTo(LisService, {
+    foreignKey: 'service_id',
+    as: 'service',
+  });
+
+  LisBilling.belongsTo(LisTestOrder, {
+    foreignKey: 'order_id',
+    as: 'order',
+  });
 
   // LabOrder ↔ LabOrderTest (One-to-Many)
   LabOrder.hasMany(LabOrderTest, { foreignKey: 'order_id', as: 'tests' });
@@ -735,6 +940,57 @@ export const setupAssociations = () => {
   // ADMISSION ASSOCIATIONS
   // ==========================================================================
 
+  // Admission progressnote
+  AdmissionProgressNote.belongsTo(Admission, {
+    foreignKey: 'admission_id',
+    as: 'admission',
+  });
+
+  AdmissionProgressNote.belongsTo(Staff, {
+    foreignKey: 'recorded_by',
+    as: 'recorder',
+  });
+
+  AdmissionProgressNote.belongsTo(Staff, {
+    foreignKey: 'amended_by',
+    as: 'amender',
+  });
+
+  AdmissionProgressNote.belongsTo(Staff, {
+    foreignKey: 'deleted_by',
+    as: 'deleter',
+  });
+
+  AdmissionProgressNote.belongsTo(AdmissionProgressNote, {
+    foreignKey: 'original_note_id',
+    as: 'originalNote',
+  });
+
+  AdmissionProgressNote.hasMany(AdmissionProgressNote, {
+    foreignKey: 'original_note_id',
+    as: 'amendments',
+  });
+
+  Admission.hasMany(AdmissionProgressNote, {
+    foreignKey: 'admission_id',
+    as: 'progressNotes',
+  });
+
+  AdmissionProgressNote.belongsTo(Patient, {
+    foreignKey: 'patient_id',
+    as: 'patient',
+  });
+
+  Patient.hasMany(AdmissionProgressNote, {
+    foreignKey: 'patient_id',
+    as: 'progressNotes',
+  });
+
+  Staff.hasMany(AdmissionProgressNote, {
+    foreignKey: 'recorded_by',
+    as: 'recordedProgressNotes',
+  });
+
   // Patient ↔ Admission (One-to-Many)
   Patient.hasMany(Admission, { foreignKey: 'patient_id', as: 'admissions' });
   Admission.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
@@ -757,6 +1013,16 @@ export const setupAssociations = () => {
   Admission.belongsTo(Appointment, {
     foreignKey: 'appointment_id',
     as: 'originatingAppointment',
+  });
+
+  Room.hasMany(Bed, {
+    foreignKey: 'room_id',
+    as: 'beds',
+    onDelete: 'CASCADE',
+  });
+  Bed.belongsTo(Room, {
+    foreignKey: 'room_id',
+    as: 'room',
   });
 
   // Bed ↔ BedAssignment (One-to-Many)
@@ -783,6 +1049,46 @@ export const setupAssociations = () => {
     as: 'assignedBy',
   });
 
+  Department.hasMany(Room, {
+    foreignKey: 'department_id',
+    as: 'rooms',
+  });
+  Room.belongsTo(Department, {
+    foreignKey: 'department_id',
+    as: 'department',
+  });
+  BedStatusLog.belongsTo(Bed, {
+    foreignKey: 'bed_id',
+    as: 'bed',
+  });
+  Bed.hasMany(BedStatusLog, {
+    foreignKey: 'bed_id',
+    as: 'statusLogs',
+  });
+
+  BedStatusLog.belongsTo(Staff, {
+    foreignKey: 'changed_by',
+    as: 'changedByStaff',
+  });
+  Staff.hasMany(BedStatusLog, {
+    foreignKey: 'changed_by',
+    as: 'bedStatusChanges',
+  });
+
+  Admission.hasMany(BedStatusLog, {
+    foreignKey: 'admission_id',
+    as: 'bedStatusLogs',
+  });
+
+  BedStatusLog.belongsTo(BedAssignment, {
+    foreignKey: 'assignment_id',
+    as: 'bedAssignment',
+  });
+  BedAssignment.hasMany(BedStatusLog, {
+    foreignKey: 'assignment_id',
+    as: 'statusLogs',
+  });
+
   // ==========================================================================
   // MEDICAL RECORD ASSOCIATIONS WITH OTHER SERVICES
   // ==========================================================================
@@ -804,6 +1110,7 @@ export const setupAssociations = () => {
     foreignKey: 'visit_id',
     as: 'admission',
   });
+  MedicalRecord.belongsTo(Patient, { foreignKey: 'patient_id', as: 'patient' });
 
   // Reverse associations
   Appointment.hasMany(MedicalRecord, {
@@ -879,7 +1186,7 @@ export const setupAssociations = () => {
   // ERVisit ↔ TriageAssessment (One-to-One)
   ERVisit.hasOne(TriageAssessment, {
     foreignKey: 'er_visit_id',
-    as: 'triageAssessment',
+    as: 'triage',
   });
   TriageAssessment.belongsTo(ERVisit, {
     foreignKey: 'er_visit_id',

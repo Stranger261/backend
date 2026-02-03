@@ -3,8 +3,8 @@ import messageSender from '../../../shared/utils/messageSender.util.js';
 import prescriptionService from '../services/prescription.service.js';
 
 export const createPrescription = asyncHandler(async (req, res) => {
-  const doctorStaffId = req.staff.staff_id;
-  const prescriptionData = req.body;
+  const doctorStaffId = req.user.staff_id;
+  const { prescriptionData } = req.body;
 
   const prescription = await prescriptionService.createPrescription(
     prescriptionData,
@@ -37,7 +37,7 @@ export const getPatientPrescriptions = asyncHandler(async (req, res) => {
 
 export const dispenseMedication = asyncHandler(async (req, res) => {
   const { itemId } = req.params;
-  const pharmacistStaffId = req.staff.staff_id;
+  const pharmacistStaffId = req.user.staff_id;
 
   const item = await prescriptionService.dispenseMedication(
     itemId,

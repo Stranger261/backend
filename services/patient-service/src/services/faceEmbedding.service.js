@@ -56,7 +56,7 @@ export default class FaceEmbeddingService {
       if (existingEmbedding) {
         throw new AppError(
           'Face is already registered with other account.',
-          400
+          400,
         );
       }
 
@@ -64,7 +64,8 @@ export default class FaceEmbeddingService {
     } catch (error) {
       console.log(error);
       throw (
-        (error instanceof AppError ? AppError : 'Internal server error.', 500)
+        error instanceof AppError ? AppError : 'Internal server error.',
+        500
       );
     }
   }
@@ -102,7 +103,8 @@ export default class FaceEmbeddingService {
     } catch (error) {
       console.error('Save face embedding error:', error);
       throw (
-        (error instanceof AppError ? AppError : 'Internal server error.', 500)
+        error instanceof AppError ? AppError : 'Internal server error.',
+        500
       );
     }
   }
@@ -123,7 +125,7 @@ export default class FaceEmbeddingService {
 
       if (!embedding) {
         throw new AppError(
-          `Face embedding with Patient ID of ${patientId} not found.`
+          `Face embedding with Patient ID of ${patientId} not found.`,
         );
       }
 
@@ -131,7 +133,8 @@ export default class FaceEmbeddingService {
     } catch (error) {
       console.error('Get patient face embedding error:', error);
       throw (
-        (error instanceof AppError ? AppError : 'Internal server error.', 500)
+        error instanceof AppError ? AppError : 'Internal server error.',
+        500
       );
     }
   }
@@ -142,7 +145,7 @@ export default class FaceEmbeddingService {
     try {
       const result = await FaceEmbedding.update(
         { is_active: false },
-        { where: activeRecord({ embedding_id: embId }), transaction }
+        { where: activeRecord({ embedding_id: embId }), transaction },
       );
 
       if (!result) {
@@ -168,7 +171,8 @@ export default class FaceEmbeddingService {
       await transaction.rollback();
       console.log('Deactivate Face Embedding error: ', error);
       throw (
-        (error instanceof AppError ? AppError : 'Internal server error.', 500)
+        error instanceof AppError ? AppError : 'Internal server error.',
+        500
       );
     }
   }
@@ -177,14 +181,14 @@ export default class FaceEmbeddingService {
     patientId,
     staffId,
     userAgent,
-    ipAddress
+    ipAddress,
   ) {
     const transaction = await sequelize.transaction();
 
     try {
       const result = await FaceEmbedding.update(
         { is_active: false },
-        { where: activeRecord({ patient_id: patientId }), transaction }
+        { where: activeRecord({ patient_id: patientId }), transaction },
       );
 
       if (!result) {
@@ -210,7 +214,8 @@ export default class FaceEmbeddingService {
       await transaction.rollback();
       console.log('Deactivate face embedding using PatientID failed: ', error);
       throw (
-        (error instanceof AppError ? AppError : 'Internal server error.', 500)
+        error instanceof AppError ? AppError : 'Internal server error.',
+        500
       );
     }
   }
@@ -238,7 +243,8 @@ export default class FaceEmbeddingService {
     } catch (error) {
       console.error('Get all active embeddings error:', error);
       throw (
-        (error instanceof AppError ? AppError : 'Internal server error.', 500)
+        error instanceof AppError ? AppError : 'Internal server error.',
+        500
       );
     }
   }

@@ -11,13 +11,13 @@ import {
   AppointmentPayment,
   AppointmentPricing,
   Department,
-  DoctorLeave,
   IdSequence,
   Notification,
   Patient,
   Person,
   Staff,
   User,
+  VideoConsultation,
 } from '../../../shared/models/index.js';
 import { emitToRoom } from '../../../shared/utils/socketEmitter.js';
 
@@ -29,6 +29,23 @@ class AppointmentService {
 
       const endTime = dayjs(dateString).add(minutesToAdd, 'minute');
       return endTime.isValid() ? endTime.format('HH:mm:ss') : 'Invalid Date';
+    };
+
+    this.calculateAge = dateOfBirth => {
+      const dob = new Date(dateOfBirth);
+      const today = new Date();
+
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < dob.getDate())
+      ) {
+        age--;
+      }
+
+      return age;
     };
   }
   // Appointment Generator
@@ -171,7 +188,7 @@ class AppointmentService {
       ) {
         throw new AppError('Missing required fields', 400);
       }
-      console.log(doctor_uuid);
+      console.log('creating appointment');
 
       // find the doctor
       const doctor = await Staff.findOne(
@@ -234,6 +251,8 @@ class AppointmentService {
       if (!person) {
         throw new AppError('Person not found', 404);
       }
+
+      console.log('creating patient');
       // create patient if no data yet
       const patient = await Patient.createPatient({
         person_id,
@@ -253,6 +272,21 @@ class AppointmentService {
 
       if (hasConflict) {
         throw new AppError('This time slot is already booked', 409);
+      }
+
+      const haveAppointmentSameTime = await Appointment.findOne({
+        where: {
+          patient_id: patient.patient_id,
+          start_time,
+          appointment_date,
+        },
+      });
+
+      if (haveAppointmentSameTime) {
+        throw new AppError(
+          `${created_by_type === 'patient' ? 'You currently' : 'Patient currently'} have an appointment for this date and time.`,
+          400,
+        );
       }
 
       // get the pricing
@@ -483,6 +517,7 @@ class AppointmentService {
       if (!patient) {
         throw new AppError('Patient not found.', 404);
       }
+
       const patientId = patient.patient_id;
       const {
         status,
@@ -617,7 +652,7 @@ class AppointmentService {
           limit: parseInt(limit),
           offset,
           order: [
-            ['appointment_date', 'ASC'],
+            ['appointment_date', 'DESC'],
             ['start_time', 'ASC'],
           ],
           include: [
@@ -645,6 +680,10 @@ class AppointmentService {
             {
               model: Department,
               as: 'department',
+            },
+            {
+              model: VideoConsultation,
+              as: 'videoConsultation',
             },
           ],
         });
@@ -772,6 +811,10 @@ class AppointmentService {
                 },
               ],
             },
+            {
+              model: VideoConsultation,
+              as: 'videoConsultation',
+            },
           ],
         });
 
@@ -787,7 +830,7 @@ class AppointmentService {
         },
       };
     } catch (error) {
-      console.log(`Get today's appointments failed: `, error);
+      console.error(`Get today's appointments failed: `, error);
       throw error instanceof AppError
         ? error
         : AppError(`Failed to fetch today's appointments.`, 500);
@@ -931,7 +974,7 @@ class AppointmentService {
       return await this.getAppointmentById(appointmentId);
     } catch (error) {
       await transaction.rollback();
-      console.log('Resched appointment error: ', error);
+      console.error('Resched appointment error: ', error);
       throw error instanceof AppError
         ? error
         : new AppError('Failed to resched appointment', 500);
@@ -1077,7 +1120,7 @@ class AppointmentService {
       if (!transaction.finished) {
         await transaction.rollback();
       }
-      console.log('Update appointment status error: ', error);
+      console.error('Update appointment status error: ', error);
       throw error instanceof AppError
         ? error
         : new AppError('Update appointment status failed.', 500);
@@ -1128,14 +1171,304 @@ class AppointmentService {
       return payment;
     } catch (error) {
       await transaction.rollback();
-      console.log('Payment failed: ', error);
+      console.error('Payment failed: ', error);
       throw error instanceof AppError
         ? error
         : new AppError('Process payment failed.', 500);
     }
   }
 
-  async getPaymentHistory(appointmentId) {}
+  // In AppointmentService class
+  async getAllSlotsForDate(date, filters = {}) {
+    try {
+      const { status, departmentId, doctorId } = filters;
+      console.log(status, departmentId, doctorId);
+
+      const page = parseInt(filters.page);
+      const limit = parseInt(filters.limit);
+
+      // Build main where clause
+      const where = { appointment_date: date };
+      if (status) {
+        where.status = status;
+      }
+
+      if (departmentId) {
+        where.department_id = departmentId;
+      }
+
+      // Build doctor where clause
+      const doctorWhere = {};
+      if (doctorId) {
+        doctorWhere.staff_id = doctorId; // or whatever your PK field is
+      }
+
+      const offset = (page - 1) * limit;
+
+      const { rows: res, count: total } = await Appointment.findAndCountAll({
+        where, // ✅ Use the where object you built
+        include: [
+          {
+            model: Patient,
+            as: 'patient',
+            required: false, // LEFT JOIN - won't filter out records
+            attributes: [],
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                required: false,
+                attributes: [
+                  'first_name',
+                  'last_name',
+                  'gender',
+                  'phone',
+                  'email',
+                ],
+                include: [
+                  {
+                    model: User,
+                    as: 'user',
+                    required: false,
+                    attributes: ['phone', 'email'],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            model: Staff,
+            as: 'doctor',
+            where: doctorId ? doctorWhere : undefined, // ✅ Use where property
+            required: !!doctorId, // Only INNER JOIN if filtering by doctor
+            attributes: ['staff_uuid', 'employee_number'],
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                required: false,
+                attributes: [
+                  'first_name',
+                  'last_name',
+                  'gender',
+                  'phone',
+                  'email',
+                ],
+              },
+              {
+                model: Department,
+                as: 'department',
+                required: !!departmentId, // Only INNER JOIN if filtering by department
+                attributes: ['department_name', 'department_code'],
+              },
+            ],
+          },
+        ],
+        offset,
+        limit,
+        distinct: true, // Important for accurate count with includes
+      });
+
+      return {
+        res,
+        pagination: {
+          limit: parseInt(limit),
+          page: parseInt(page),
+          total: parseInt(total),
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error(
+        `Failed to get appointment for date: ${date}`,
+        error.message,
+      );
+      throw error instanceof AppError
+        ? error
+        : new AppError(`Failed to get appointment for date: ${date}`, 500);
+    }
+  }
+
+  // Get slot summary for a date range (for calendar)
+  async getSlotsSummaryForRange(startDate, endDate) {
+    try {
+      const summary = {};
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Generate all dates in range
+      for (
+        let date = new Date(start);
+        date <= end;
+        date.setDate(date.getDate() + 1)
+      ) {
+        const dateStr = format(date, 'yyyy-MM-dd');
+
+        // Get slots for this date
+        const slots = await this.getAllSlotsForDate(dateStr, true);
+
+        const availableSlots = slots.filter(s => s.isAvailable);
+        const bookedSlots = slots.filter(s => !s.isAvailable);
+
+        summary[dateStr] = {
+          totalSlots: slots.length,
+          availableSlots: availableSlots.length,
+          bookedSlots: bookedSlots.length,
+          hasAvailability: availableSlots.length > 0,
+        };
+      }
+
+      return summary;
+    } catch (error) {
+      console.error('Get slots summary error:', error);
+      throw error instanceof AppError
+        ? error
+        : new AppError('Failed to get slots summary', 500);
+    }
+  }
+
+  // Get appointments by date with filters
+  async getAppointmentsByDate(date, filters = {}) {
+    try {
+      const where = {
+        appointment_date: date,
+      };
+
+      if (filters.status) {
+        where.status = filters.status;
+      }
+
+      if (filters.appointment_type) {
+        where.appointment_type = filters.appointment_type;
+      }
+
+      if (filters.doctor_uuid) {
+        const doctor = await Staff.findOne({
+          where: { staff_uuid: filters.doctor_uuid },
+        });
+        if (doctor) {
+          where.doctor_id = doctor.staff_id;
+        }
+      }
+
+      if (filters.department_id) {
+        where.department_id = filters.department_id;
+      }
+
+      const appointments = await Appointment.findAll({
+        where,
+        order: [['start_time', 'ASC']],
+        include: [
+          {
+            model: Patient,
+            as: 'patient',
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                attributes: [
+                  'first_name',
+                  'middle_name',
+                  'last_name',
+                  'gender',
+                  'date_of_birth',
+                ],
+              },
+            ],
+          },
+          {
+            model: Staff,
+            as: 'doctor',
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                attributes: ['first_name', 'middle_name', 'last_name'],
+              },
+              {
+                model: Department,
+                as: 'department',
+              },
+            ],
+          },
+        ],
+      });
+
+      return appointments;
+    } catch (error) {
+      console.error('Get appointments by date error:', error);
+      throw error instanceof AppError
+        ? error
+        : new AppError('Failed to get appointments by date', 500);
+    }
+  }
+
+  // Get daily statistics
+  async getDailyStatistics(date) {
+    try {
+      const appointments = await this.getAppointmentsByDate(date);
+      const slots = await this.getAllSlotsForDate(date, true);
+
+      const statistics = {
+        date,
+        totalSlots: slots.length,
+        availableSlots: slots.filter(s => s.isAvailable).length,
+        bookedSlots: slots.filter(s => !s.isAvailable).length,
+        appointments: {
+          total: appointments.length,
+          scheduled: appointments.filter(a => a.status === 'scheduled').length,
+          confirmed: appointments.filter(a => a.status === 'confirmed').length,
+          checked_in: appointments.filter(a => a.status === 'checked_in')
+            .length,
+          in_progress: appointments.filter(a => a.status === 'in_progress')
+            .length,
+          completed: appointments.filter(a => a.status === 'completed').length,
+          cancelled: appointments.filter(a => a.status === 'cancelled').length,
+          no_show: appointments.filter(a => a.status === 'no_show').length,
+        },
+        byType: {
+          consultation: appointments.filter(
+            a => a.appointment_type === 'consultation',
+          ).length,
+          follow_up: appointments.filter(
+            a => a.appointment_type === 'follow_up',
+          ).length,
+          procedure: appointments.filter(
+            a => a.appointment_type === 'procedure',
+          ).length,
+          telemedicine: appointments.filter(
+            a => a.appointment_type === 'telemedicine',
+          ).length,
+        },
+        byMode: {
+          online: appointments.filter(a => a.is_online_consultation).length,
+          in_person: appointments.filter(a => !a.is_online_consultation).length,
+        },
+      };
+
+      return statistics;
+    } catch (error) {
+      console.error('Get daily statistics error:', error);
+      throw error instanceof AppError
+        ? error
+        : new AppError('Failed to get daily statistics', 500);
+    }
+  }
+
+  // Helper function to check if time slot is in the past
+  isTimeSlotPast(dateStr, timeStr) {
+    try {
+      const slotDateTime = parse(
+        `${dateStr} ${timeStr}`,
+        'yyyy-MM-dd HH:mm:ss',
+        new Date(),
+      );
+      return slotDateTime < new Date();
+    } catch (error) {
+      console.error('Error parsing time slot:', error);
+      return false;
+    }
+  }
 }
 
 export default new AppointmentService();

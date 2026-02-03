@@ -19,7 +19,7 @@ export const getDoctorsByDepartment = asyncHandler(async (req, res) => {
 
   const doctors = await doctorService.getDoctorsByDepartment(
     departmentId,
-    patientUuid
+    patientUuid,
   );
   messageSender(200, 'Doctors retrieved successfully.', doctors, res);
 });
@@ -31,13 +31,13 @@ export const getDoctorAvailability = asyncHandler(async (req, res) => {
   const availability = await doctorService.getDoctorAvailability(
     doctorUuid,
     startDate,
-    endDate
+    endDate,
   );
   messageSender(
     200,
     'Doctor availability retrieved successfully.',
     availability,
-    res
+    res,
   );
 });
 
@@ -48,13 +48,21 @@ export const getDepartmentAvailability = asyncHandler(async (req, res) => {
   const availability = await doctorService.getDepartmentAvailability(
     departmentId,
     startDate,
-    endDate
+    endDate,
   );
 
   messageSender(
     200,
     'Department availability retrieved successfully.',
     availability,
-    res
+    res,
   );
+});
+
+export const createDoctorSchedule = asyncHandler(async (req, res) => {
+  const { scheduleData } = req.body;
+
+  const result = await doctorService.createDoctorSchedule(scheduleData);
+
+  messageSender(201, 'Schedule created successfully', result, res);
 });

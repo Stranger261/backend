@@ -63,9 +63,19 @@ Person.init(
         'married',
         'widowed',
         'divorced',
-        'separated'
+        'separated',
       ),
       allowNull: true,
+    },
+    phone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    email: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      unique: true,
+      validate: { isEmail: true },
     },
     face_encoding: {
       type: DataTypes.TEXT,
@@ -114,7 +124,7 @@ Person.init(
       { name: 'idx_user_id', fields: ['user_id'] },
       { name: 'idx_full_name', fields: ['last_name', 'first_name'] },
     ],
-  }
+  },
 );
 
 export default Person;

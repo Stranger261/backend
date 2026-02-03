@@ -15,6 +15,7 @@ import {
   DoctorSchedule,
   DoctorLeave,
   Appointment,
+  sequelize,
 } from '../../../shared/models/index.js';
 import AppError from '../../../shared/utils/AppError.util.js';
 
@@ -221,7 +222,7 @@ class DoctorService {
         leaves,
         appointments,
         start,
-        end
+        end,
       );
 
       return { availableSlots };
@@ -234,7 +235,7 @@ class DoctorService {
   async getDepartmentAvailability(
     departmentId,
     startDate = null,
-    endDate = null
+    endDate = null,
   ) {
     try {
       const today = startOfDay(new Date());
@@ -268,7 +269,7 @@ class DoctorService {
           const availability = await this.getDoctorAvailability(
             doctor.staff_uuid,
             format(start, 'yyyy-MM-dd'),
-            format(end, 'yyyy-MM-dd')
+            format(end, 'yyyy-MM-dd'),
           );
 
           const slotWithDoctor = availability.availableSlots.map(slot => ({
@@ -288,7 +289,7 @@ class DoctorService {
             },
             availableSlots: slotWithDoctor,
           };
-        })
+        }),
       );
 
       return allSchedules;
@@ -319,7 +320,7 @@ class DoctorService {
 
       // Check if doctor has schedule for this day
       const daySchedules = schedules.filter(
-        sched => dayMap[sched.day_of_week] === dayOfWeek
+        sched => dayMap[sched.day_of_week] === dayOfWeek,
       );
 
       if (daySchedules.length === 0) return;
@@ -338,7 +339,7 @@ class DoctorService {
         const timeSlots = this.generateTimeSlots(
           schedule.start_time,
           schedule.end_time,
-          30 // 30mins
+          30, // 30mins
         );
         // filter out booked slots
         const bookedSlots = appointments
@@ -346,7 +347,7 @@ class DoctorService {
           .map(apt => apt.start_time);
 
         const availableTimeSlots = timeSlots.filter(
-          slot => !bookedSlots.includes(slot)
+          slot => !bookedSlots.includes(slot),
         );
 
         availableTimeSlots.forEach(time => {
@@ -379,6 +380,193 @@ class DoctorService {
     }
 
     return slots;
+  }
+
+  async createDoctorSchedule(scheduleData) {
+    const transaction = await sequelize.transaction();
+
+    try {
+      const {
+        staff_id,
+        day_of_week,
+        start_time,
+        end_time,
+        location,
+        effective_from,
+        effective_until,
+        is_active = true,
+      } = scheduleData;
+
+      console.log('Creating schedule with data:', scheduleData);
+
+      // 1. Validate required fields
+      if (!staff_id || !day_of_week || !start_time || !end_time) {
+        throw new AppError('Missing required fields', 400);
+      }
+
+      // 2. Validate doctor exists and is active
+      const doctor = await Staff.findOne({
+        where: {
+          staff_id,
+          role: 'doctor',
+          employment_status: 'active',
+        },
+        transaction,
+      });
+
+      if (!doctor) {
+        throw new AppError('Doctor not found or not active', 404);
+      }
+
+      // 3. Validate time format and logic
+      if (start_time >= end_time) {
+        throw new AppError('Start time must be before end time', 400);
+      }
+
+      // 4. Validate day_of_week is valid
+      const validDays = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
+      if (!validDays.includes(day_of_week)) {
+        throw new AppError('Invalid day of week', 400);
+      }
+
+      // 5. Parse effective dates
+      const effectiveFrom = effective_from
+        ? parseISO(effective_from)
+        : new Date();
+      let effectiveUntil = null;
+
+      if (effective_until) {
+        effectiveUntil = parseISO(effective_until);
+        if (effectiveUntil < effectiveFrom) {
+          throw new AppError(
+            'Effective until date must be after effective from date',
+            400,
+          );
+        }
+      }
+
+      // 6. Check for overlapping schedules
+      const overlappingSchedule = await DoctorSchedule.findOne({
+        where: {
+          staff_id,
+          day_of_week,
+          is_active: true,
+          [Op.or]: [
+            // Schedule with no end date that starts before our end
+            {
+              [Op.and]: [
+                { effective_until: { [Op.is]: null } },
+                { effective_from: { [Op.lte]: effectiveUntil || new Date() } },
+              ],
+            },
+            // Schedule that overlaps with our date range
+            {
+              [Op.and]: [
+                { effective_from: { [Op.lte]: effectiveUntil || new Date() } },
+                { effective_until: { [Op.gte]: effectiveFrom } },
+              ],
+            },
+          ],
+          // Time overlap check
+          [Op.and]: [
+            { start_time: { [Op.lt]: end_time } },
+            { end_time: { [Op.gt]: start_time } },
+          ],
+        },
+        transaction,
+      });
+
+      if (overlappingSchedule) {
+        throw new AppError(
+          'Doctor already has an overlapping schedule at this time',
+          409,
+        );
+      }
+
+      // 7. Create the schedule
+      const schedule = await DoctorSchedule.create(
+        {
+          staff_id,
+          day_of_week,
+          start_time,
+          end_time,
+          location: location || null,
+          is_active,
+          effective_from: effectiveFrom,
+          effective_until: effectiveUntil,
+        },
+        { transaction },
+      );
+
+      await transaction.commit();
+
+      // 8. Return the created schedule
+      return await this.getScheduleById(schedule.schedule_id);
+    } catch (error) {
+      await transaction.rollback();
+      console.error('Create schedule error:', error.message);
+      throw error;
+    }
+  }
+
+  async getScheduleById(scheduleId) {
+    try {
+      const schedule = await DoctorSchedule.findByPk(scheduleId, {
+        include: [
+          {
+            model: Staff,
+            as: 'staff',
+            where: { role: 'doctor' },
+            include: [
+              {
+                model: Person,
+                as: 'person',
+                attributes: ['first_name', 'last_name'],
+              },
+            ],
+            attributes: ['staff_id', 'staff_uuid', 'specialization'],
+          },
+        ],
+      });
+
+      if (!schedule) {
+        throw new AppError('Schedule not found', 404);
+      }
+
+      // Format response
+      return {
+        schedule_id: schedule.schedule_id,
+        staff_id: schedule.staff_id,
+        day_of_week: schedule.day_of_week,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time,
+        location: schedule.location,
+        is_active: schedule.is_active,
+        effective_from: schedule.effective_from,
+        effective_until: schedule.effective_until,
+        created_at: schedule.created_at,
+        updated_at: schedule.updated_at,
+        doctor: schedule.staff
+          ? {
+              staff_id: schedule.staff.staff_id,
+              staff_uuid: schedule.staff.staff_uuid,
+              name: `Dr. ${schedule.staff.person.first_name} ${schedule.staff.person.last_name}`,
+              specialization: schedule.staff.specialization,
+            }
+          : null,
+      };
+    } catch (error) {
+      console.error('Get schedule by ID error:', error);
+      throw error;
+    }
   }
 }
 

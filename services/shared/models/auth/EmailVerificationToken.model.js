@@ -23,6 +23,10 @@ EmailVerificationToken.init(
       unique: true,
       allowNull: false,
     },
+    purpose: {
+      type: DataTypes.ENUM('registration', 'login_2fa', 'password_reset'),
+      defaultValue: 'registration',
+    },
     expires_at: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -47,7 +51,7 @@ EmailVerificationToken.init(
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: false,
-  }
+  },
 );
 
 export default EmailVerificationToken;

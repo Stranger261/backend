@@ -49,7 +49,7 @@ export const authorizeRole = (...allowedRoles) => {
       }
 
       const isAuthorizedRole = allowedRoles.some(
-        role => role.toLowerCase() === userRole.toLowerCase()
+        role => role.toLowerCase() === userRole.toLowerCase(),
       );
 
       if (!isAuthorizedRole) {
@@ -69,7 +69,7 @@ export const protectInternalApi = asyncHandler((req, res, next) => {
   if (!providedKey || providedKey !== process.env.INTERNAL_API_KEY) {
     throw new AppError(
       'Forbidden: You are not authorized to access this resource',
-      403
+      403,
     );
   }
 

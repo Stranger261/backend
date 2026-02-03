@@ -28,7 +28,7 @@ export default new (class authRegistration {
     password,
     userAgent,
     ipAddress,
-    role = 'Patient'
+    role = 'Patient',
   ) {
     const transaction = await sequelize.transaction();
     let token = null;
@@ -37,7 +37,7 @@ export default new (class authRegistration {
       if (phone && !phoneRegex.test(phone.trim())) {
         throw new AppError(
           'Invalid Philippine phone number format. Must start with +63 followed by 9 and 9 more digits (e.g., +639123456789).',
-          400
+          400,
         );
       }
 
@@ -79,7 +79,7 @@ export default new (class authRegistration {
           password_hash,
           phone,
         },
-        { transaction }
+        { transaction },
       );
 
       if (!user) {
@@ -93,7 +93,7 @@ export default new (class authRegistration {
           staff_id: null,
           assign_at: new Date(),
         },
-        { transaction }
+        { transaction },
       );
 
       const currentUserRole = await UserRole.findAll({
@@ -126,7 +126,7 @@ export default new (class authRegistration {
 
       const otpCode = otpGenerator();
       const expiresAt = new Date(
-        Date.now() + process.env.OTP_EXPIRY_MINUTES * 60 * 1000
+        Date.now() + process.env.OTP_EXPIRY_MINUTES * 60 * 1000,
       );
       console.log(expiresAt);
 
@@ -139,10 +139,11 @@ export default new (class authRegistration {
         {
           user_id: user.user_id,
           token: otpCode,
+          purpose: 'registration',
           expires_at: expiresAt,
           ip_address: ipAddress,
         },
-        { transaction }
+        { transaction },
       );
       const sanitizedUser = sanitizeUser(user, roles);
 
@@ -156,9 +157,17 @@ export default new (class authRegistration {
             role: roles[0]?.role_name.toLowerCase(),
           },
           process.env.JWT_SECRET,
-          { expiresIn: process.env.JWT_EXPIRES_IN }
+          { expiresIn: process.env.JWT_EXPIRES_IN },
         );
       }
+
+      console.log({
+        user_id: user.user_id,
+        user_uuid: user.user_uuid,
+        email: user.email,
+        roles: roles.map(role => role.role_name),
+        role: roles[0]?.role_name.toLowerCase(),
+      });
 
       await auditHelper.userRegistration({
         userId: user.user_id,
@@ -200,7 +209,7 @@ export default new (class authRegistration {
       if (!operationLocation) {
         throw new AppError(
           'No operation-location returned from Azure OCR',
-          500
+          500,
         );
       }
 
@@ -276,11 +285,11 @@ export default new (class authRegistration {
             registration_status: 'personal_info_verification',
             last_activity_at: new Date(),
           },
-          { transaction }
+          { transaction },
         ),
         otpRecord.update(
           { verified: true, verified_at: new Date() },
-          { transaction }
+          { transaction },
         ),
       ]);
 
@@ -306,7 +315,7 @@ export default new (class authRegistration {
     }
   }
 
-  async resendOTP(userUuid, ipAddress) {
+  async resendOTP(userUuid, ipAddress, purpose = 'registration') {
     const transaction = await sequelize.transaction();
     try {
       const user = await User.findOne({
@@ -323,7 +332,7 @@ export default new (class authRegistration {
       }
 
       const existingOtp = await EmailVerificationToken.findOne({
-        where: { user_id: userId },
+        where: { user_id: user.user_id, purpose: 'registration' },
         order: [['created_at', 'DESC']],
         transaction,
       });
@@ -338,14 +347,14 @@ export default new (class authRegistration {
             `Please wait ${
               process.env.OTP_RESEND_COOLDOWN_SECONDS - secondsSinceLastSent
             } seconds before requesting a new OTP.`,
-            429
+            429,
           );
         }
       }
 
       const newOtp = otpGenerator();
       const newExpiry = new Date(
-        Date.now() + process.env.OTP_EXPIRY_MINUTES * 60 * 1000
+        Date.now() + process.env.OTP_EXPIRY_MINUTES * 60 * 1000,
       );
 
       const isEmailSent = await sendOTPEmail(user.email, newOtp);
@@ -361,7 +370,7 @@ export default new (class authRegistration {
             verify: false,
             verfied_at: null,
           },
-          { transaction }
+          { transaction },
         );
       } else {
         await EmailVerificationToken.create(
@@ -371,7 +380,7 @@ export default new (class authRegistration {
             expires_at: newExpiry,
             ip_address: ipAddress,
           },
-          { transaction }
+          { transaction },
         );
       }
 
@@ -395,7 +404,7 @@ export default new (class authRegistration {
     formData,
     idPhotoBuffer,
     userAgent,
-    ipAddress
+    ipAddress,
   ) {
     if (!idPhotoBuffer) {
       throw new AppError('ID photo is required', 400);
@@ -478,7 +487,7 @@ export default new (class authRegistration {
             'x-internal-api-key': process.env.INTERNAL_API_KEY,
           },
           timeout: 60000,
-        }
+        },
       );
 
       await auditHelper.updateLog({
@@ -522,7 +531,7 @@ export default new (class authRegistration {
         throw new AppError(
           message || 'Patient service request failed',
           statusCode,
-          details
+          details,
         );
       }
 
@@ -531,7 +540,7 @@ export default new (class authRegistration {
         console.error('📡 Patient Service: No response received');
         throw new AppError(
           'Patient service is not responding. Please try again later.',
-          503
+          503,
         );
       }
 
@@ -559,7 +568,7 @@ export default new (class authRegistration {
       if (!user) {
         throw new AppError(
           'User not found or face verification not available at this step',
-          404
+          404,
         );
       }
 
@@ -579,7 +588,7 @@ export default new (class authRegistration {
             account_status: 'active',
             verified_at: new Date(),
           },
-          { transaction }
+          { transaction },
         );
 
         await auditHelper.updateLog({
@@ -605,7 +614,7 @@ export default new (class authRegistration {
         console.log('❌ Auth Service: Face verification failed');
         throw new AppError(
           'User registered face does not match with live capture.',
-          400
+          400,
         );
       }
 
@@ -624,14 +633,14 @@ export default new (class authRegistration {
         throw new AppError(
           error.response.data.message || 'Verification failed',
           error.response.status || 500,
-          error.response.data.details
+          error.response.data.details,
         );
       }
 
       if (error.request) {
         throw new AppError(
           'Patient service is not responding. Please try again later.',
-          503
+          503,
         );
       }
 

@@ -5,13 +5,21 @@ import { Op } from 'sequelize';
 
 import AppError from '../../../shared/utils/AppError.util.js';
 import {
+  Admission,
+  AdmissionProgressNote,
   Appointment,
+  AppointmentVitals,
   Department,
   Patient,
   Person,
+  Prescription,
+  PrescriptionItem,
   sequelize,
   Staff,
   User,
+  PHIAccessLog,
+  MedicalRecord,
+  PersonContact,
 } from '../../../shared/models/index.js';
 import {
   broadcastToAll,
@@ -629,6 +637,14 @@ class kioskService {
       const doctor = appointment.doctor;
 
       if (timeDiff < -ONE_HOUR_MS) {
+        await broadcastToAll('patient-arrived', {
+          userUuid: person?.user?.user_uuid,
+          appointmentId: appointment.appointment_id,
+          patientName: `${person.first_name} ${person.last_name}`,
+          doctorId: appointment.doctor_id,
+          arrivalTime: currentDateTime,
+          status: 'arrived',
+        });
         throw new AppError('Appointment is more than 1 hour away', 400, {
           patient: {
             name: `${person.first_name} ${person.last_name}`,
@@ -771,6 +787,671 @@ class kioskService {
         ? error
         : new AppError('Verify appointment failed.', 500);
     }
+  }
+
+  // Add this method to your existing kioskService.js
+
+  /**
+   * Get patient medical data via face recognition
+   * Uses the SAME logic as your existing MedicalRecordsService
+   */
+  async getPatientMedicalData(livePhotoBase64, requestInfo = {}) {
+    try {
+      console.log('🔍 Starting face recognition for medical records...');
+
+      // Step 1: Detect and get face token from live photo (YOUR EXISTING LOGIC)
+      const liveDetection = await this.detectAndCropFace(livePhotoBase64);
+      const liveFaceToken = liveDetection.faceToken;
+
+      // Step 2: Search for matching face in FaceSet (YOUR EXISTING LOGIC)
+      const matches = await this.searchFaceInFaceSet(liveFaceToken);
+
+      if (matches.length === 0) {
+        throw new AppError('No registered face found in the system.', 404);
+      }
+
+      // Step 3: Check confidence threshold (YOUR EXISTING LOGIC)
+      const THRESHOLD = process.env.FACEPP_CONFIDENCE_THRESHOLD || 80;
+      const bestMatch = matches.find(match => match.confidence >= THRESHOLD);
+
+      if (!bestMatch) {
+        throw new AppError(
+          'No matching face found with sufficient confidence',
+          404,
+        );
+      }
+
+      console.log(
+        `✅ Face matched with ${bestMatch.confidence.toFixed(2)}% confidence`,
+      );
+
+      // Step 4: Get person and patient from database (YOUR EXISTING LOGIC)
+      const person = await Person.findOne({
+        where: {
+          face_encoding: bestMatch.face_token,
+          is_deleted: false,
+        },
+        include: [
+          {
+            model: Patient,
+            as: 'patient',
+          },
+          {
+            model: User,
+            as: 'user',
+          },
+          { model: PersonContact, as: 'contacts' },
+        ],
+      });
+
+      if (!person || !person.patient) {
+        throw new AppError('Patient record not found in database', 404);
+      }
+
+      const patient = person.patient;
+      const userId = person.user?.user_id;
+      const patientId = patient.patient_id;
+      const contacts = person.contacts;
+
+      console.log(
+        `✅ Patient identified: ${person.first_name} ${person.last_name}`,
+      );
+
+      // Step 5: Log PHI access for HIPAA compliance (YOUR EXISTING LOGIC)
+      try {
+        await PHIAccessLog.logAccess(
+          userId,
+          null, // No staff ID for patient self-access
+          'patient',
+          patientId,
+          'view_medical_records',
+          'comprehensive_medical_records',
+          null,
+          'Patient accessed own medical records via face recognition',
+          requestInfo.ipAddress || null,
+          requestInfo.userAgent || null,
+          requestInfo.sessionId || null,
+          'kiosk_biometric',
+        );
+        console.log('✅ PHI access logged');
+      } catch (logError) {
+        console.error('Failed to log PHI access:', logError.message);
+        // Don't throw - logging failures shouldn't block operations
+      }
+
+      // Step 6: Fetch medical records using the SAME logic as MedicalRecordsService
+      const medicalRecords = await this.fetchPatientMedicalRecords(patientId);
+
+      return {
+        success: true,
+        confidence: bestMatch.confidence,
+        patient: {
+          patientId: patient.patient_id,
+          patientUuid: patient.patient_uuid,
+          mrn: patient.mrn,
+          patientNumber: patient.patient_number,
+          fullName: `${person.first_name}${person.middle_name ? ' ' + person.middle_name : ''} ${person.last_name}`,
+          firstName: person.first_name,
+          lastName: person.last_name,
+          dateOfBirth: person.date_of_birth,
+          age: this.calculateAge(person.date_of_birth),
+          gender: person.gender,
+          bloodType: person.blood_type,
+          contactNumber:
+            person.contact_number ||
+            person.phone ||
+            patient.phone ||
+            patient.contact ||
+            patient.contact_number ||
+            contacts.find(c => !c.is_primary).contact_number,
+          email: person.email,
+          emergencyContact: contacts,
+        },
+        medicalRecords,
+        accessTimestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Failed to get patient medical records:', error.message);
+      throw error instanceof AppError
+        ? error
+        : new AppError('Failed to retrieve patient medical records.', 500);
+    }
+  }
+
+  /**
+   * Fetch patient medical records using SAME logic as MedicalRecordsService.fetchMedicalRecords
+   * This uses the EXACT SAME models and structure
+   */
+  async fetchPatientMedicalRecords(patientId) {
+    try {
+      // Use the SAME filter structure as your MedicalRecordsService
+      const filters = {
+        page: 1,
+        limit: 100, // Get more records for comprehensive view
+        startDate: null,
+        endDate: null,
+        recordType: null,
+        status: null,
+        visitType: null,
+        search: null,
+      };
+
+      // Build date filter (SAME as your service)
+      const dateFilter = {};
+
+      // Build base where clause (SAME as your service)
+      const baseWhere = { patient_id: patientId };
+
+      // Fetch all record types concurrently (SAME as your service)
+      const [medicalRecords, appointments, admissions] = await Promise.all([
+        this.fetchMedicalRecordsData(patientId, filters, dateFilter, baseWhere),
+        this.fetchAppointmentsData(patientId, filters, dateFilter, baseWhere),
+        this.fetchAdmissionsData(patientId, filters, dateFilter, baseWhere),
+      ]);
+
+      // Build unified timeline (SAME as your service)
+      const timeline = this.buildMedicalTimeline({
+        medicalRecords,
+        appointments,
+        admissions,
+        requestingUserRole: 'patient', // Since it's the patient accessing their own records
+      });
+
+      return {
+        timeline,
+        summary: {
+          totalRecords: timeline.length,
+          totalMedicalRecords: medicalRecords.length,
+          totalAppointments: appointments.length,
+          totalAdmissions: admissions.length,
+        },
+        // Include raw data for easy access
+        medicalRecords,
+        appointments,
+        admissions,
+      };
+    } catch (error) {
+      console.error('Fetch medical records failed:', error.message);
+      throw new AppError('Failed to fetch medical records', 500);
+    }
+  }
+
+  /**
+   * Fetch medical records data (COPIED from your MedicalRecordsService)
+   */
+  async fetchMedicalRecordsData(patientId, filters, dateFilter, baseWhere) {
+    const { visitType } = filters;
+
+    const where = { ...baseWhere };
+
+    // Apply date filter
+    if (Object.keys(dateFilter).length > 0) {
+      where.record_date = dateFilter;
+    }
+
+    // Apply visit type filter
+    if (visitType && visitType !== '') {
+      where.visit_type = visitType;
+    }
+
+    return MedicalRecord.findAll({
+      where,
+      include: [
+        {
+          model: Staff,
+          as: 'doctor',
+          include: [
+            {
+              model: Person,
+              as: 'person',
+              attributes: ['first_name', 'middle_name', 'last_name', 'suffix'],
+            },
+          ],
+        },
+      ],
+      order: [['record_date', 'DESC']],
+    });
+  }
+
+  /**
+   * Fetch appointments data (COPIED from your MedicalRecordsService)
+   */
+  async fetchAppointmentsData(patientId, filters, dateFilter, baseWhere) {
+    const { visitType, status } = filters;
+
+    // If visitType is specified and not appointment, return empty
+    if (visitType && visitType !== '' && visitType !== 'appointment') {
+      return [];
+    }
+
+    const where = { ...baseWhere };
+
+    // Apply date filter
+    if (Object.keys(dateFilter).length > 0) {
+      where.appointment_date = dateFilter;
+    }
+
+    // Apply status filter
+    if (status && status !== '') {
+      where.status = status;
+    }
+
+    return Appointment.findAll({
+      where,
+      include: [
+        {
+          model: AppointmentVitals,
+          as: 'vitals',
+          required: false,
+        },
+        {
+          model: Staff,
+          as: 'doctor',
+          include: [
+            {
+              model: Person,
+              as: 'person',
+              attributes: ['first_name', 'middle_name', 'last_name', 'suffix'],
+            },
+          ],
+        },
+        {
+          model: Admission,
+          as: 'resultingAdmission',
+          required: false,
+          include: [
+            {
+              model: AdmissionProgressNote,
+              as: 'progressNotes',
+              where: { is_deleted: false },
+              required: false,
+              separate: true,
+              limit: 10,
+              order: [['note_date', 'DESC']],
+              include: [
+                {
+                  model: Staff,
+                  as: 'recorder',
+                  include: [
+                    {
+                      model: Person,
+                      as: 'person',
+                      attributes: ['first_name', 'middle_name', 'last_name'],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              model: Prescription,
+              as: 'prescriptions',
+              required: false,
+              include: [
+                {
+                  model: PrescriptionItem,
+                  as: 'items',
+                  required: false,
+                },
+              ],
+            },
+            {
+              model: Staff,
+              as: 'attendingDoctor',
+              include: [
+                {
+                  model: Person,
+                  as: 'person',
+                  attributes: [
+                    'first_name',
+                    'middle_name',
+                    'last_name',
+                    'suffix',
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      order: [['appointment_date', 'DESC']],
+    });
+  }
+
+  /**
+   * Fetch admissions data (COPIED from your MedicalRecordsService)
+   */
+  async fetchAdmissionsData(patientId, filters, dateFilter, baseWhere) {
+    const { visitType, status } = filters;
+
+    // If visitType is specified and not admission, return empty
+    if (visitType && visitType !== '' && visitType !== 'admission') {
+      return [];
+    }
+
+    const where = { ...baseWhere };
+
+    // Apply date filter
+    if (Object.keys(dateFilter).length > 0) {
+      where.admission_date = dateFilter;
+    }
+
+    // Apply status filter
+    if (status && status !== '') {
+      where.admission_status = status;
+    }
+
+    return Admission.findAll({
+      where,
+      include: [
+        {
+          model: AdmissionProgressNote,
+          as: 'progressNotes',
+          where: { is_deleted: false },
+          required: false,
+          separate: true,
+          limit: 10,
+          order: [['note_date', 'DESC']],
+          include: [
+            {
+              model: Staff,
+              as: 'recorder',
+              include: [
+                {
+                  model: Person,
+                  as: 'person',
+                  attributes: ['first_name', 'middle_name', 'last_name'],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          model: Prescription,
+          as: 'prescriptions',
+          required: false,
+          include: [
+            {
+              model: PrescriptionItem,
+              as: 'items',
+              required: false,
+            },
+          ],
+        },
+        {
+          model: Staff,
+          as: 'attendingDoctor',
+          include: [
+            {
+              model: Person,
+              as: 'person',
+              attributes: ['first_name', 'middle_name', 'last_name', 'suffix'],
+            },
+          ],
+        },
+      ],
+      order: [['admission_date', 'DESC']],
+    });
+  }
+
+  /**
+   * Build unified medical timeline (COPIED from your MedicalRecordsService)
+   */
+  buildMedicalTimeline({
+    medicalRecords,
+    appointments,
+    admissions,
+    requestingUserRole = null,
+  }) {
+    const timeline = [];
+
+    // Add medical records to timeline
+    medicalRecords.forEach(record => {
+      timeline.push({
+        id: `mr-${record.record_id}`,
+        type: 'medical_record',
+        recordType: record.record_type,
+        date: record.record_date,
+        title: this.getRecordTitle(record.record_type),
+        visitType: record.visit_type,
+        visitId: record.visit_id,
+        chiefComplaint: record.chief_complaint,
+        diagnosis: record.diagnosis,
+        treatment: record.treatment,
+        notes: record.notes,
+        doctor: this.formatDoctorName(record.doctor),
+        doctorFirstName: record.doctor?.person?.first_name || '',
+        doctorLastName: record.doctor?.person?.last_name || '',
+      });
+    });
+
+    // Add appointments to timeline
+    appointments.forEach(appointment => {
+      const diagnosisArray = Array.isArray(appointment.diagnosis)
+        ? appointment.diagnosis
+        : [appointment.diagnosis].filter(Boolean);
+      const diagnosisInfo = diagnosisArray[0];
+      const vitalsInfo = appointment.vitals;
+      const relatedAdmission = appointment.resultingAdmission;
+
+      timeline.push({
+        id: `apt-${appointment.appointment_id}`,
+        type: 'appointment',
+        date: appointment.appointment_date,
+        title: 'Appointment',
+        status: appointment.status,
+        appointmentType: appointment.appointment_type,
+        chiefComplaint:
+          diagnosisInfo?.chief_complaint || vitalsInfo?.chief_complaint,
+        diagnosis: diagnosisInfo?.primary_diagnosis,
+        secondaryDiagnoses: diagnosisInfo?.secondary_diagnoses,
+        treatmentPlan: diagnosisInfo?.treatment_plan,
+        disposition: diagnosisInfo?.disposition,
+        doctor: this.formatDoctorName(appointment.doctor),
+        doctorFirstName: appointment.doctor?.person?.first_name || '',
+        doctorLastName: appointment.doctor?.person?.last_name || '',
+        vitals: vitalsInfo
+          ? {
+              temperature: vitalsInfo.temperature,
+              bloodPressure: `${vitalsInfo.blood_pressure_systolic}/${vitalsInfo.blood_pressure_diastolic}`,
+              heartRate: vitalsInfo.heart_rate,
+              respiratoryRate: vitalsInfo.respiratory_rate,
+              oxygenSaturation: vitalsInfo.oxygen_saturation,
+              weight: vitalsInfo.weight,
+              height: vitalsInfo.height,
+              bmi: vitalsInfo.bmi,
+              painLevel: vitalsInfo.pain_level,
+            }
+          : null,
+        requiresAdmission: diagnosisInfo?.requires_admission,
+        requiresFollowup: diagnosisInfo?.requires_followup,
+        followupDate: diagnosisInfo?.followup_date,
+        relatedAdmission: relatedAdmission
+          ? this.formatAdmissionForTimeline(
+              relatedAdmission,
+              requestingUserRole,
+            )
+          : null,
+      });
+    });
+
+    // Add admissions to timeline
+    admissions.forEach(admission => {
+      timeline.push({
+        id: `adm-${admission.admission_id}`,
+        type: 'admission',
+        date: admission.admission_date,
+        title: 'Hospital Admission',
+        admissionNumber: admission.admission_number,
+        admissionType: admission.admission_type,
+        admissionSource: admission.admission_source,
+        status: admission.admission_status,
+        diagnosis: admission.diagnosis_at_admission,
+        expectedDischargeDate: admission.expected_discharge_date,
+        dischargeDate: admission.discharge_date,
+        dischargeType: admission.discharge_type,
+        dischargeSummary: admission.discharge_summary,
+        lengthOfStay: admission.length_of_stay_days,
+        doctor: this.formatDoctorName(admission.attendingDoctor),
+        doctorFirstName: admission.attendingDoctor?.person?.first_name || '',
+        doctorLastName: admission.attendingDoctor?.person?.last_name || '',
+        progressNotesCount: admission.progressNotes?.length || 0,
+        prescriptionsCount: admission.prescriptions?.length || 0,
+        recentProgressNotes: this.formatProgressNotesForRole(
+          admission.progressNotes?.slice(0, 3) || [],
+          requestingUserRole,
+        ),
+        hasProgressNotes:
+          admission.progressNotes && admission.progressNotes.length > 0,
+        hasPrescriptions:
+          admission.prescriptions && admission.prescriptions.length > 0,
+        prescriptions:
+          admission.prescriptions?.map(rx => this.formatPrescription(rx)) || [],
+      });
+    });
+
+    // Sort by date (most recent first)
+    timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return timeline;
+  }
+
+  /**
+   * Format admission for timeline display (COPIED from your MedicalRecordsService)
+   */
+  formatAdmissionForTimeline(admission, requestingUserRole) {
+    return {
+      id: `adm-${admission.admission_id}`,
+      admissionNumber: admission.admission_number,
+      admissionDate: admission.admission_date,
+      admissionType: admission.admission_type,
+      admissionSource: admission.admission_source,
+      status: admission.admission_status,
+      diagnosis: admission.diagnosis_at_admission,
+      expectedDischargeDate: admission.expected_discharge_date,
+      dischargeDate: admission.discharge_date,
+      dischargeType: admission.discharge_type,
+      dischargeSummary: admission.discharge_summary,
+      lengthOfStay: admission.length_of_stay_days,
+      doctor: this.formatDoctorName(admission.attendingDoctor),
+      doctorFirstName: admission.attendingDoctor?.person?.first_name || '',
+      doctorLastName: admission.attendingDoctor?.person?.last_name || '',
+      progressNotesCount: admission.progressNotes?.length || 0,
+      recentProgressNotes: this.formatProgressNotesForRole(
+        admission.progressNotes?.slice(0, 3) || [],
+        requestingUserRole,
+      ),
+      prescriptions:
+        admission.prescriptions?.map(rx => this.formatPrescription(rx)) || [],
+    };
+  }
+
+  /**
+   * Format progress notes (COPIED from your MedicalRecordsService)
+   */
+  formatProgressNotesForRole(progressNotes, requestingUserRole) {
+    return progressNotes.map(note => ({
+      noteId: note.note_id,
+      noteDate: note.note_date,
+      noteType: note.note_type,
+      subjective: note.subjective,
+      objective: note.objective,
+      assessment: note.assessment,
+      plan: note.plan,
+      isCritical: note.is_critical,
+      recordedBy: this.formatStaffName(note.recorder),
+      recordedByFirstName: note.recorder?.person?.first_name || '',
+      recordedByLastName: note.recorder?.person?.last_name || '',
+    }));
+  }
+
+  /**
+   * Format prescription (COPIED from your MedicalRecordsService)
+   */
+  formatPrescription(prescription) {
+    return {
+      prescriptionId: prescription.prescription_id,
+      prescriptionNumber: prescription.prescription_number,
+      prescriptionDate: prescription.prescription_date,
+      status: prescription.prescription_status,
+      items:
+        prescription.items?.map(item => ({
+          itemId: item.item_id,
+          medicationName: item.medication_name,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          route: item.route,
+          duration: item.duration,
+          instructions: item.instructions,
+          dispensed: item.dispensed,
+        })) || [],
+    };
+  }
+
+  /**
+   * Helper: Format doctor name (COPIED from your MedicalRecordsService)
+   */
+  formatDoctorName(doctor) {
+    if (!doctor || !doctor.person) return 'Unknown';
+
+    const { first_name, middle_name, last_name, suffix } = doctor.person;
+    let name = `Dr. ${first_name}`;
+
+    if (middle_name) name += ` ${middle_name}`;
+    name += ` ${last_name}`;
+    if (suffix) name += `, ${suffix}`;
+
+    return name;
+  }
+
+  /**
+   * Helper: Format staff name (COPIED from your MedicalRecordsService)
+   */
+  formatStaffName(staff) {
+    if (!staff || !staff.person) return 'Unknown';
+
+    const { first_name, middle_name, last_name, suffix } = staff.person;
+    let name = first_name;
+
+    if (middle_name) name += ` ${middle_name}`;
+    name += ` ${last_name}`;
+    if (suffix) name += `, ${suffix}`;
+
+    return name;
+  }
+
+  /**
+   * Helper: Get record title (COPIED from your MedicalRecordsService)
+   */
+  getRecordTitle(recordType) {
+    const titles = {
+      consultation: 'Consultation',
+      lab_result: 'Laboratory Result',
+      imaging: 'Imaging Study',
+      diagnosis: 'Diagnosis',
+      procedure: 'Procedure',
+    };
+    return titles[recordType] || recordType;
+  }
+
+  /**
+   * Calculate age from date of birth
+   */
+  calculateAge(dateOfBirth) {
+    if (!dateOfBirth) return null;
+
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    return age;
   }
 }
 

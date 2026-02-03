@@ -8,7 +8,12 @@ const router = express.Router();
 router.patch(
   '/verify-arrived-appointment',
   protectInternalApi,
-  kioskController.verifyAppointmentArrival
+  kioskController.verifyAppointmentArrival,
+);
+
+router.post(
+  '/patient-medical-records',
+  kioskController.getPatientMedicalRecords,
 );
 
 export default router;

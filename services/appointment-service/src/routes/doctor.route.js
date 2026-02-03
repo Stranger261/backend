@@ -16,21 +16,23 @@ router.get('/doctors', authenticate, doctorController.getAllDoctors);
 router.get(
   '/departments/:departmentId/doctors',
   authenticate,
-  doctorController.getDoctorsByDepartment
+  doctorController.getDoctorsByDepartment,
 );
 
 // Get doctor's availability (3-month schedule for booking)
 router.get(
   '/doctors/:doctorUuid/availability',
   authenticate,
-  doctorController.getDoctorAvailability
+  doctorController.getDoctorAvailability,
 );
 
 // Get combined department availability (for "Any Doctor" option)
 router.get(
   '/departments/:departmentId/availability',
   authenticate,
-  doctorController.getDepartmentAvailability
+  doctorController.getDepartmentAvailability,
 );
+
+router.post('/', authenticate, doctorController.createDoctorSchedule);
 
 export default router;

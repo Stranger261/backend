@@ -19,6 +19,8 @@ app.use(
       'http://192.168.100.11:5173',
       'https://core1.health-ease-hospital.com',
       'https://kiosk.face-scan.health-ease-hospital.com',
+      'https://kiosk-er.vercel.app',
+      'https://kiosk-ass.vercel.app',
     ],
     credentials: true,
     methods: ['GET', 'PATCH', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
@@ -42,7 +44,7 @@ app.use(
     ],
     preflightContinue: true,
     optionsSuccessStatus: 204,
-  })
+  }),
 );
 
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));

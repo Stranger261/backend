@@ -1,3 +1,4 @@
+// models/Room.js
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../config/db.config.js';
 
@@ -11,9 +12,37 @@ class Room extends Model {
     });
   }
 
-  getCurrentOccupancy() {
-    // This would need to join with Bed table
-    return 0; // Placeholder
+  async getCurrentOccupancy() {
+    const Bed = sequelize.models.Bed;
+
+    const beds = await Bed.findAll({
+      where: { room_id: this.room_id },
+      attributes: ['bed_status'],
+    });
+
+    const occupied = beds.filter(bed => bed.bed_status === 'occupied').length;
+    const total = beds.length;
+
+    return {
+      occupied,
+      total,
+      available: total - occupied,
+      percentage: total > 0 ? Math.round((occupied / total) * 100) : 0,
+    };
+  }
+
+  static async getRoomWithBeds(roomId) {
+    const Bed = sequelize.models.Bed;
+
+    return await this.findOne({
+      where: { room_id: roomId },
+      include: [
+        {
+          model: Bed,
+          as: 'beds',
+        },
+      ],
+    });
   }
 }
 
@@ -35,7 +64,7 @@ Room.init(
         'private',
         'semi_private',
         'ward',
-        'isolation'
+        'isolation',
       ),
       allowNull: false,
     },
@@ -62,7 +91,7 @@ Room.init(
     tableName: 'rooms',
     timestamps: false,
     indexes: [{ name: 'idx_room_type', fields: ['room_type'] }],
-  }
+  },
 );
 
 export default Room;

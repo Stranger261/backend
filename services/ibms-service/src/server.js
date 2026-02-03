@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import sequelize from '../../shared/config/db.config.js';
 import app from './app.js';
 import { socketHandler } from './sockets/socketHandler.js';
+import { setupAssociations } from '../../shared/models/index.js';
 
 dotenv.config();
 
@@ -33,6 +34,9 @@ socketHandler(io);
   try {
     await sequelize.authenticate();
     console.log('✅ Database connected.');
+
+    setupAssociations();
+    console.log('✅ Model associations configured.');
 
     if (process.env.NODE_ENV === 'development') {
       await sequelize.sync({ force: false });

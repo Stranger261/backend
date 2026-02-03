@@ -12,7 +12,7 @@ export const initialRegistration = asyncHandler(async (req, res) => {
     phone,
     password,
     userAgent,
-    ipAddress
+    ipAddress,
   );
 
   res.cookie('jwt', newUser.token, {
@@ -26,7 +26,7 @@ export const initialRegistration = asyncHandler(async (req, res) => {
     201,
     'Initial registration completed successfully.',
     newUser,
-    res
+    res,
   );
 });
 
@@ -39,7 +39,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     email,
     token,
     userAgent,
-    ipAddress
+    ipAddress,
   );
 
   messageSender(200, 'Email verified successfully.', verifiedUserEmail, res);
@@ -65,7 +65,7 @@ export const OCR = asyncHandler(async (req, res) => {
 export const completeProfileWithID = asyncHandler(async (req, res) => {
   const { user_uuid, email } = req.user;
   const { userAgent, ipAddress } = req.clientInfo;
-  const idPhotoBuffer = req.file.buffer;
+  const idPhotoBuffer = req.file?.buffer;
   const formData = { ...req.body, email };
 
   const result = await authRegistration.completeProfileWithID(
@@ -73,7 +73,7 @@ export const completeProfileWithID = asyncHandler(async (req, res) => {
     formData,
     idPhotoBuffer,
     userAgent,
-    ipAddress
+    ipAddress,
   );
 
   messageSender(200, result.message, result, res);
@@ -95,6 +95,6 @@ export const completeFaceVerification = asyncHandler(async (req, res) => {
     200,
     'Face verification successful! Your account is now active.',
     result,
-    res
+    res,
   );
 });

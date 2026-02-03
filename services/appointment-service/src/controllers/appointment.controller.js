@@ -10,6 +10,7 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     ...req.body,
     doctor_uuid: req.body.doctor_uuid,
     created_by_uuid: isStaff ? req.user.staff_id : req.user.user_id,
+    created_by_type: req.user.role,
   };
 
   const appointment = await appointmentService.bookAppointment(
@@ -51,7 +52,7 @@ export const getPatientAppointments = asyncHandler(async (req, res) => {
 export const getDoctorAppointments = asyncHandler(async (req, res) => {
   const { doctorUuid } = req.params;
   const filters = req.query;
-
+  console.log('called');
   const result = await appointmentService.getDoctorAppointments(
     doctorUuid,
     filters,
@@ -101,6 +102,7 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
   const { newStatus } = req.body;
   const { appointmentId } = req.params;
   const updatedBy = req.user.user_id;
+  console.log(appointmentId);
 
   const response = await appointmentService.updateAppointmentStatus(
     appointmentId,
@@ -191,4 +193,80 @@ export const appointmentTypes = asyncHandler(async (req, res) => {
   const types = await appointmentService.getAppointmentTypes();
 
   messageSender(200, 'Fetched successfully.', types, res);
+});
+
+export const getAllSlotsForDate = asyncHandler(async (req, res) => {
+  const { date } = req.params;
+  const filters = req.query;
+
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new AppError('Invalid date format. Use yyyy-MM-dd', 400);
+  }
+
+  const slots = await appointmentService.getAllSlotsForDate(date, filters);
+
+  messageSender(200, 'Slots fetched successfully', slots, res);
+});
+
+// Get slot summary for date range (for calendar view)
+export const getSlotsSummary = asyncHandler(async (req, res) => {
+  const { start_date, end_date } = req.query;
+  console.log('date');
+  if (!start_date || !end_date) {
+    throw new AppError('start_date and end_date are required', 400);
+  }
+
+  // Validate date formats
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(start_date) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(end_date)
+  ) {
+    throw new AppError('Invalid date format. Use yyyy-MM-dd', 400);
+  }
+
+  const summary = await appointmentService.getSlotsSummaryForRange(
+    start_date,
+    end_date,
+  );
+
+  messageSender(200, 'Slot summary fetched successfully', summary, res);
+});
+
+// Get appointments by date (for day view)
+export const getAppointmentsByDate = asyncHandler(async (req, res) => {
+  const { date } = req.params;
+  const { status, department_id, doctor_uuid, appointment_type } = req.query;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new AppError('Invalid date format. Use yyyy-MM-dd', 400);
+  }
+
+  const appointments = await appointmentService.getAppointmentsByDate(date, {
+    status,
+    department_id: department_id ? parseInt(department_id) : null,
+    doctor_uuid,
+    appointment_type,
+  });
+
+  messageSender(
+    200,
+    'Appointments fetched successfully',
+    { date, appointments },
+    res,
+  );
+});
+
+// Get daily statistics for receptionist dashboard
+export const getDailyStatistics = asyncHandler(async (req, res) => {
+  const { date } = req.query;
+  const targetDate = date || format(new Date(), 'yyyy-MM-dd');
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    throw new AppError('Invalid date format. Use yyyy-MM-dd', 400);
+  }
+
+  const statistics = await appointmentService.getDailyStatistics(targetDate);
+
+  messageSender(200, 'Statistics fetched successfully', statistics, res);
 });

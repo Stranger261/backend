@@ -1,19 +1,9 @@
-import { DataTypes, Model } from 'sequelize';
-import sequelize from '../../config/db.config.js';
+// models/TwoFactorAuth.model.js
+import { DataTypes } from 'sequelize';
+import sequelize from '../../../shared/config/db.config.js';
 
-class TwoFactorAuth extends Model {
-  static async enableForUser(userId, method, secretKey) {
-    return await this.upsert({
-      user_id: userId,
-      method,
-      secret_key: secretKey,
-      enabled: true,
-      enabled_at: new Date(),
-    });
-  }
-}
-
-TwoFactorAuth.init(
+const TwoFactorAuth = sequelize.define(
+  'TwoFactorAuth',
   {
     tfa_id: {
       type: DataTypes.INTEGER,
@@ -22,12 +12,11 @@ TwoFactorAuth.init(
     },
     user_id: {
       type: DataTypes.INTEGER,
-      unique: true,
       allowNull: false,
     },
     method: {
       type: DataTypes.ENUM('totp', 'sms', 'email', 'disabled'),
-      defaultValue: 'disabled',
+      defaultValue: 'email',
     },
     secret_key: {
       type: DataTypes.STRING(255),
@@ -45,13 +34,16 @@ TwoFactorAuth.init(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    verified_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
-    sequelize,
-    modelName: 'TwoFactorAuth',
     tableName: 'two_factor_auth',
     timestamps: false,
-  }
+    underscored: true,
+  },
 );
 
 export default TwoFactorAuth;

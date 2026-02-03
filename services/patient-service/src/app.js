@@ -10,6 +10,8 @@ import personRoutes from './routes/person.route.js';
 import patientRoutes from './routes/patient.route.js';
 import updateRoutes from './routes/updatePerson.route.js';
 import allergyRoute from './routes/allergy.route.js';
+import medicalRecordRoute from './routes/medicalRecord.route.js';
+import careTeam from './routes/careTeam.route.js';
 
 const app = express();
 
@@ -43,7 +45,7 @@ app.use(
     ],
     preflightContinue: false,
     optionsSuccessStatus: 204,
-  })
+  }),
 );
 
 app.use(express.json({ limit: '50mb' }));
@@ -57,6 +59,8 @@ app.use('/api/v1/person', personRoutes);
 app.use('/api/v1/patients', patientRoutes);
 app.use('/api/v1/updatePerson', updateRoutes);
 app.use('/api/v1/allergies', allergyRoute);
+app.use('/api/v1/medical-records', medicalRecordRoute);
+app.use('/api/v1/care-team', careTeam);
 
 app.use(errorHandler);
 

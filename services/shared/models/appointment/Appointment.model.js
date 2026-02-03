@@ -18,7 +18,7 @@ class Appointment extends Model {
     doctorUuid,
     appointmentDate,
     startTime,
-    excludeAppointmentId = null
+    excludeAppointmentId = null,
   ) {
     const doctor = await Staff.findOne({ where: { staff_uuid: doctorUuid } });
 
@@ -150,7 +150,7 @@ Appointment.init(
         'in_progress',
         'completed',
         'cancelled',
-        'no_show'
+        'no_show',
       ),
       defaultValue: 'scheduled',
     },
@@ -171,6 +171,25 @@ Appointment.init(
       defaultValue: 500.0,
       comment: 'Base consultation fee',
     },
+    one_day_reminder_sent: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
+    one_hour_reminder_sent: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
+    five_min_reminder_sent: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
+    reminder_sent_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     extension_fee: {
       type: DataTypes.DECIMAL(10, 2),
       defaultValue: 0.0,
@@ -187,7 +206,7 @@ Appointment.init(
         'partial',
         'paid',
         'refunded',
-        'cancelled'
+        'cancelled',
       ),
       defaultValue: 'pending',
     },
@@ -223,7 +242,7 @@ Appointment.init(
       { name: 'idx_status', fields: ['status'] },
       { name: 'idx_payment_status', fields: ['payment_status'] },
     ],
-  }
+  },
 );
 
 export default Appointment;

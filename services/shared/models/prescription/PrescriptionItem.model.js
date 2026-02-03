@@ -59,7 +59,7 @@ PrescriptionItem.init(
         'IM',
         'subcutaneous',
         'topical',
-        'inhalation'
+        'inhalation',
       ),
       allowNull: true,
     },
@@ -108,7 +108,7 @@ PrescriptionItem.init(
       },
       { name: 'idx_prescription_item_dispensed', fields: ['dispensed'] },
     ],
-  }
+  },
 );
 
 export default PrescriptionItem;

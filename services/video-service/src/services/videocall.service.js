@@ -37,7 +37,13 @@ class VideoCallService {
             doctor_id: doctor.staff_id,
             is_online_consultation: true,
             appointment_date: { [Op.between]: [startOfDay, endOfDay] },
-            status: ['scheduled', 'confirmed', 'checked_in', 'in_progress'],
+            status: [
+              'scheduled',
+              'confirmed',
+              'checked_in',
+              'in_progress',
+              'arrived',
+            ],
           },
           include: [
             {
@@ -256,7 +262,7 @@ class VideoCallService {
           room_id: roomId,
           status: 'scheduled',
         },
-        { transaction }
+        { transaction },
       );
 
       await Appointment.update(
@@ -264,7 +270,7 @@ class VideoCallService {
           is_online_consultation: true,
           video_consultation_id: consultation.consultation_id,
         },
-        { where: { appointment_id: appointmentId }, transaction }
+        { where: { appointment_id: appointmentId }, transaction },
       );
 
       const receiverUuid = appointment?.patient?.person?.user?.user_uuid;
@@ -278,7 +284,7 @@ class VideoCallService {
           message: `Your room for your appointment for ${appointment?.appointment_date} is room ${roomId}`,
           data: JSON.stringify(consultation),
         },
-        { transaction }
+        { transaction },
       );
 
       await transaction.commit();
@@ -397,14 +403,14 @@ class VideoCallService {
       if (!consultation) {
         throw new AppError(
           'Video consultation with logged in doctor not found',
-          404
+          404,
         );
       }
 
       if (consultation.status === 'in_progress') {
         throw new AppError(
           'Cannot delete consultation that is in progress',
-          400
+          400,
         );
       }
 
@@ -418,7 +424,7 @@ class VideoCallService {
           is_online_consultation: false,
           video_consultation_id: null,
         },
-        { where: { appointment_id: consultation.appointment_id }, transaction }
+        { where: { appointment_id: consultation.appointment_id }, transaction },
       );
 
       if (updatedCount === 0) {
@@ -504,7 +510,7 @@ class VideoCallService {
       if (!hasPermission) {
         throw new AppError(
           'You do not have permission to join this consultation room.',
-          403
+          403,
         );
       }
 
@@ -534,7 +540,7 @@ class VideoCallService {
           status: 'waiting',
           disconnect_reason: null,
         },
-        { transaction }
+        { transaction },
       );
 
       const updateField =
@@ -544,7 +550,7 @@ class VideoCallService {
         {
           [updateField]: Date.now(),
         },
-        { transaction }
+        { transaction },
       );
 
       const bothJoined =
@@ -558,7 +564,7 @@ class VideoCallService {
             started_at: startTime,
             status: 'in_progress',
           },
-          { transaction }
+          { transaction },
         );
 
         await Appointment.update(
@@ -567,7 +573,10 @@ class VideoCallService {
             start_time: startTime,
             end_time: expectedEndTime,
           },
-          { where: { appointment_id: appointment.appointment_id }, transaction }
+          {
+            where: { appointment_id: appointment.appointment_id },
+            transaction,
+          },
         );
       } else {
         await consultation.update({ status: 'waiting' }, { transaction });
@@ -575,7 +584,10 @@ class VideoCallService {
           {
             status: 'arrived',
           },
-          { where: { appointment_id: appointment.appointment_id }, transaction }
+          {
+            where: { appointment_id: appointment.appointment_id },
+            transaction,
+          },
         );
       }
 
@@ -672,7 +684,7 @@ class VideoCallService {
       if (!hasPermission) {
         throw new AppError(
           'You do not have permission to leave this consultation',
-          403
+          403,
         );
       }
 
@@ -703,10 +715,10 @@ class VideoCallService {
       });
 
       const doctorEntry = waitingRoomEntries.find(
-        e => e.user_type === 'doctor'
+        e => e.user_type === 'doctor',
       );
       const patientEntry = waitingRoomEntries.find(
-        e => e.user_type === 'patient'
+        e => e.user_type === 'patient',
       );
 
       // Check if consultation has actually started (both joined at some point)
@@ -731,7 +743,7 @@ class VideoCallService {
         // Calculate extension time
         const extensionMinutes = Math.max(
           0,
-          actualDurationMinutes - scheduledDuration
+          actualDurationMinutes - scheduledDuration,
         );
 
         // Calculate extension fee (PHP 15 per minute)
@@ -766,7 +778,7 @@ class VideoCallService {
             appointment.appointment_date,
             appointment.appointment_time,
             extensionMinutes,
-            transaction
+            transaction,
           );
         }
       } else if (!bothLeft) {
@@ -1009,7 +1021,7 @@ class VideoCallService {
     currentDate,
     currentTime,
     delayMinutes,
-    transaction
+    transaction,
   ) {
     try {
       const nextAppointment = await Appointment.findOne({

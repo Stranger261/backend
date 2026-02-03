@@ -25,7 +25,7 @@ const DoctorSchedule = sequelize.define(
         'Thursday',
         'Friday',
         'Saturday',
-        'Sunday'
+        'Sunday',
       ),
       allowNull: false,
     },
@@ -39,7 +39,7 @@ const DoctorSchedule = sequelize.define(
     },
     location: {
       type: DataTypes.STRING(100),
-      allowNull: false,
+      allowNull: true,
     },
     is_active: {
       type: DataTypes.BOOLEAN,
@@ -85,7 +85,7 @@ const DoctorSchedule = sequelize.define(
         fields: ['is_active'],
       },
     ],
-  }
+  },
 );
 
 export default DoctorSchedule;

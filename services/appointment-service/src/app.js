@@ -11,6 +11,7 @@ import appointmentVitalsRoute from './routes/appointmentVitals.route.js';
 import appointmentDiagnosisRoute from './routes/appointmentDiagnosis.route.js';
 import appointmentConsultationRoute from './routes/appointmentConsultation.route.js';
 import prescriptionRoute from './routes/prescription.route.js';
+import labRoute from './routes/laboratory.route.js';
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/v1/appointment-vitals', appointmentVitalsRoute);
 app.use('/api/v1/appointment-diagnosis', appointmentDiagnosisRoute);
 app.use('/api/v1/appointment-consultation', appointmentConsultationRoute);
 app.use('/api/v1/prescriptions', prescriptionRoute);
+app.use('/api/v1/lab', labRoute);
 
 app.use(errorHandler);
 

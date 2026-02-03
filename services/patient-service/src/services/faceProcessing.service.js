@@ -91,7 +91,7 @@ export default class FaceProcessingService {
             `Face++ failed after ${maxRetries} attempts: ${
               errorMsg || error.message
             }`,
-            statusCode || 500
+            statusCode || 500,
           );
         }
       }
@@ -114,7 +114,7 @@ export default class FaceProcessingService {
         console.log('\n⚠️  Creating new FaceSet...\n');
         const newFaceSet = await this.createFaceSet();
         console.log(
-          `\n✅ Add to .env: FACEPP_FACESET_TOKEN=${newFaceSet.faceset_token}\n`
+          `\n✅ Add to .env: FACEPP_FACESET_TOKEN=${newFaceSet.faceset_token}\n`,
         );
         this.faceSetToken = newFaceSet.faceset_token;
       } else {
@@ -137,13 +137,13 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/faceset/create',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       if (response.data.error_message) {
         throw new AppError(
           `FaceSet creation failed: ${response.data.error_message}`,
-          500
+          500,
         );
       }
 
@@ -161,7 +161,7 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/faceset/getdetail',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       return response.data;
@@ -196,7 +196,7 @@ export default class FaceProcessingService {
       } else {
         throw new AppError(
           'Invalid image format. Expected Buffer or base64 string.',
-          400
+          400,
         );
       }
 
@@ -218,27 +218,27 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/detect',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       if (response.data.error_message) {
         throw new AppError(
           `Face detection failed: ${response.data.error_message}`,
-          400
+          400,
         );
       }
 
       if (!response.data.faces || response.data.faces.length === 0) {
         throw new AppError(
           'No face detected. Please upload a clear photo.',
-          400
+          400,
         );
       }
 
       if (response.data.faces.length > 1) {
         throw new AppError(
           'Multiple faces detected. Please use a photo with only one person.',
-          400
+          400,
         );
       }
 
@@ -248,7 +248,7 @@ export default class FaceProcessingService {
       if (faceRect.width < 100 || faceRect.height < 100) {
         throw new AppError(
           'Face too small. Please upload a higher quality photo.',
-          400
+          400,
         );
       }
 
@@ -256,9 +256,9 @@ export default class FaceProcessingService {
       if (blurValue > 50) {
         throw new AppError(
           `Photo too blurry (${blurValue.toFixed(
-            1
+            1,
           )}). Please upload clearer photo.`,
-          400
+          400,
         );
       }
 
@@ -266,7 +266,7 @@ export default class FaceProcessingService {
       if (faceQuality < 45) {
         throw new AppError(
           `Face quality too low (${faceQuality.toFixed(1)}/100).`,
-          400
+          400,
         );
       }
 
@@ -284,21 +284,21 @@ export default class FaceProcessingService {
         .extract({
           left: Math.max(
             0,
-            Math.floor(faceRect.left - faceRect.width * padding)
+            Math.floor(faceRect.left - faceRect.width * padding),
           ),
           top: Math.max(
             0,
-            Math.floor(faceRect.top - faceRect.height * padding)
+            Math.floor(faceRect.top - faceRect.height * padding),
           ),
           width: Math.min(
             metadata.width -
               Math.max(0, Math.floor(faceRect.left - faceRect.width * padding)),
-            Math.floor(faceRect.width * (1 + 2 * padding))
+            Math.floor(faceRect.width * (1 + 2 * padding)),
           ),
           height: Math.min(
             metadata.height -
               Math.max(0, Math.floor(faceRect.top - faceRect.height * padding)),
-            Math.floor(faceRect.height * (1 + 2 * padding))
+            Math.floor(faceRect.height * (1 + 2 * padding)),
           ),
         })
         .resize(600, 600, { fit: 'cover', position: 'center' })
@@ -339,7 +339,7 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/search',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       if (response.data.error_message) {
@@ -378,7 +378,7 @@ export default class FaceProcessingService {
       // Get FaceSet details
       const details = await this.getFaceSetDetails();
       console.log(
-        `📊 FaceSet currently has ${details.face_count} registered faces`
+        `📊 FaceSet currently has ${details.face_count} registered faces`,
       );
 
       if (details.face_count === 0) {
@@ -411,7 +411,7 @@ export default class FaceProcessingService {
         console.log(`───────────────────────────────────────`);
         console.log(`🔍 Checking match #${i + 1}:`);
         console.log(
-          `   Matched face token: ${matchedFaceToken?.substring(0, 20)}...`
+          `   Matched face token: ${matchedFaceToken?.substring(0, 20)}...`,
         );
         console.log(`   Confidence: ${confidence.toFixed(2)}%`);
 
@@ -419,8 +419,8 @@ export default class FaceProcessingService {
         if (confidence < THRESHOLD) {
           console.log(
             `   ℹ️ Below threshold (${confidence.toFixed(
-              2
-            )}% < ${THRESHOLD}%), skipping`
+              2,
+            )}% < ${THRESHOLD}%), skipping`,
           );
           continue;
         }
@@ -440,7 +440,7 @@ export default class FaceProcessingService {
         if (personByEncoding) {
           console.log(`   ❌ DUPLICATE DETECTED via face_encoding!`);
           console.log(
-            `   Person: ${personByEncoding.first_name} ${personByEncoding.last_name} (ID: ${personByEncoding.person_id})`
+            `   Person: ${personByEncoding.first_name} ${personByEncoding.last_name} (ID: ${personByEncoding.person_id})`,
           );
           console.log(`   Match confidence: ${confidence.toFixed(2)}%`);
           console.log('═══════════════════════════════════════');
@@ -448,9 +448,9 @@ export default class FaceProcessingService {
 
           throw new AppError(
             `This face is already registered to other user. (${confidence.toFixed(
-              1
+              1,
             )}% match). Each person can only register once.`,
-            409
+            409,
           );
         }
 
@@ -470,7 +470,7 @@ export default class FaceProcessingService {
             if (personById) {
               console.log(`   ❌ DUPLICATE DETECTED via user_id!`);
               console.log(
-                `   Person: ${personById.first_name} ${personById.last_name} (ID: ${personById.person_id})`
+                `   Person: ${personById.first_name} ${personById.last_name} (ID: ${personById.person_id})`,
               );
               console.log(`   Match confidence: ${confidence.toFixed(2)}%`);
               console.log('═══════════════════════════════════════');
@@ -478,9 +478,9 @@ export default class FaceProcessingService {
 
               throw new AppError(
                 `This face is already registered to other user. (${confidence.toFixed(
-                  1
+                  1,
                 )}% match). Each person can only register once.`,
-                409
+                409,
               );
             }
           }
@@ -518,7 +518,7 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/face/getdetail',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       return response.data;
@@ -558,7 +558,7 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/faceset/addface',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       if (response.data.error_message) {
@@ -594,7 +594,7 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/face/setuserid',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       if (response.data.error_message) {
@@ -621,7 +621,7 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/faceset/removeface',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       console.log('✅ Face removed from FaceSet');
@@ -641,7 +641,7 @@ export default class FaceProcessingService {
         console.error(
           '❌ Invalid liveFaceToken:',
           typeof liveFaceToken,
-          liveFaceToken
+          liveFaceToken,
         );
         throw new AppError('Invalid live face token', 400);
       }
@@ -658,13 +658,13 @@ export default class FaceProcessingService {
       const response = await axios.post(
         'https://api-us.faceplusplus.com/facepp/v3/compare',
         formData,
-        { headers: formData.getHeaders(), timeout: 30000 }
+        { headers: formData.getHeaders(), timeout: 30000 },
       );
 
       if (response.data.error_message) {
         throw new AppError(
           `Comparison failed: ${response.data.error_message}`,
-          400
+          400,
         );
       }
 
@@ -712,7 +712,7 @@ export default class FaceProcessingService {
     if (faceQuality < 40) {
       throw new AppError(
         `Face quality insufficient (${faceQuality.toFixed(1)}/100).`,
-        400
+        400,
       );
     }
 
@@ -728,6 +728,29 @@ export default class FaceProcessingService {
     return {
       face_encoding: faceToken,
       face_image_path: relativePath,
+      face_quality_score: faceQuality,
+      embedding_hash: embeddingHash,
+      cropped_face_buffer: croppedFaceBuffer,
+      quality_checks: qualityChecks,
+    };
+  }
+
+  async processFaceFromCamera(cameraImageBuffer) {
+    const { croppedFaceBuffer, faceToken, faceQuality, qualityChecks } =
+      await this.detectAndCropFace(cameraImageBuffer);
+
+    if (faceQuality < 40) {
+      throw new AppError(
+        `Face quality insufficient (${faceQuality.toFixed(1)}/100). Please take a clearer photo.`,
+        400,
+      );
+    }
+
+    const embeddingHash = this.generateEmbeddingHash(faceToken);
+    console.log('✅ Face processing complete');
+
+    return {
+      face_encoding: faceToken,
       face_quality_score: faceQuality,
       embedding_hash: embeddingHash,
       cropped_face_buffer: croppedFaceBuffer,

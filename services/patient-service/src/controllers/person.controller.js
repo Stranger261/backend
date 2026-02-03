@@ -5,7 +5,6 @@ import messageSender from '../../../shared/utils/messageSender.util.js';
 
 export const registerPerson = asyncHandler(async (req, res) => {
   const { ipAddress, userAgent } = req.clientInfo;
-
   const data = { ...req.body, ipAddress, userAgent };
 
   const newPerson = await personService.registerPerson(data);
@@ -14,7 +13,7 @@ export const registerPerson = asyncHandler(async (req, res) => {
     201,
     newPerson.message || 'New person created successfully.',
     newPerson,
-    res
+    res,
   );
 });
 
@@ -37,4 +36,25 @@ export const getPerson = asyncHandler(async (req, res) => {
   const person = await personService.getPerson(userUUID);
 
   messageSender(200, 'Person retrieved successfully.', person, res);
+});
+
+export const registerPersonWalkIn = asyncHandler(async (req, res) => {
+  const {
+    personData,
+    personContact,
+    personAddress,
+    personIdentification,
+    staffId,
+  } = req.body;
+  const { ipAddress, userAgent } = req.clientInfo;
+
+  const newPerson = await personService.registerWalkInPerson({
+    personData,
+    personContact,
+    personAddress,
+    personIdentification,
+    staffId,
+  });
+
+  messageSender(201, 'Registered successfully.', newPerson, res);
 });

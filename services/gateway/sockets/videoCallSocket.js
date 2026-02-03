@@ -34,11 +34,6 @@ export const videoCallSocket = io => {
     socket.on('video:join-room', data => {
       const { roomId } = data;
       const user = userRoomMapping.get(socket.id);
-      console.log('this is the user', user);
-
-      console.log('================');
-      console.log('joining');
-      console.log('================');
       if (!user) {
         socket.emit('video:room-error', {
           error: 'User not registered',
@@ -46,15 +41,11 @@ export const videoCallSocket = io => {
         });
         return;
       }
-      console.log('================');
-      console.log('joined');
-      console.log('================');
 
       // Join the room
       socket.join(roomId);
       user.roomId = roomId;
 
-      console.log('this is the participants before: ', roomParticipants);
       // Track participants
       if (!roomParticipants.has(roomId)) {
         roomParticipants.set(roomId, new Set());
@@ -64,13 +55,9 @@ export const videoCallSocket = io => {
 
       const participantsCount = roomParticipants.get(roomId).size;
 
-      console.log('this is the participants after: ', roomParticipants);
-      console.log(`✅ ${user.name} joined room: ${roomId}`);
-
       // Get other participants in the roo
       const participants = Array.from(roomParticipants.get(roomId)).map(id => {
         const participant = userRoomMapping.get(id);
-        console.log(participant);
 
         return {
           socketId: participant.socketId,
@@ -190,7 +177,7 @@ export const videoCallSocket = io => {
         enabled,
       });
       console.log(
-        `🎛️ ${user?.name} ${type} ${enabled ? 'enabled' : 'disabled'}`
+        `🎛️ ${user?.name} ${type} ${enabled ? 'enabled' : 'disabled'}`,
       );
     });
 
